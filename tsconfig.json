@@ -17,6 +17,7 @@
     "moduleResolution": "NodeNext",
     "target": "ES2022",
     "lib": ["ES2022"],
+    "types": ["node", "vitest/globals"],
     "verbatimModuleSyntax": true,
     "isolatedModules": true,
     "esModuleInterop": true,

@@ -39,6 +39,7 @@ export default tseslint.config(
         },
       ],
       '@typescript-eslint/no-unnecessary-type-conversion': 'error',
+      '@typescript-eslint/array-type': ['error', { default: 'array', readonly: 'generic' }],
 
       // TS compiler handles these — disable base JS versions
       'no-undef': 'off',
@@ -88,7 +89,7 @@ export default tseslint.config(
       'functional/no-mixed-types': 'error',
       'functional/no-let': 'error',
       'functional/no-loop-statements': 'error',
-      'functional/readonly-type': 'error',
+      'functional/readonly-type': ['error', 'generic'],
       'functional/functional-parameters': 'error',
       'functional/prefer-property-signatures': 'error',
       'functional/prefer-tacit': 'error',

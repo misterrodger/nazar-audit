@@ -106,3 +106,11 @@ Handles flaky registry responses in CI environments without failing the build.
 - `--workspaces` -- audit all workspaces
 - `--include-workspace-root` -- include the root project
 - Support npm workspaces, pnpm workspaces, and Yarn workspaces
+
+## P1.11 CLI Branding Art
+
+Display a nazar (evil eye) amulet as ASCII/Unicode art in the CLI output:
+- Show on `--help`, `--version`, or as a banner before scan results
+- Use Unicode box-drawing and color (via picocolors) for a compact, distinctive look
+- Respect `NO_COLOR` by falling back to plain ASCII
+- Keep it small (3-5 lines) so it doesn't dominate the output

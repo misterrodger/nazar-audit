@@ -17,22 +17,7 @@
     "node": ">=18.0.0"
   },
   "bin": {
-    "nazar-audit": "./dist/cli.js"
-  },
-  "main": "./dist/index.cjs",
-  "module": "./dist/index.js",
-  "types": "./dist/index.d.ts",
-  "exports": {
-    ".": {
-      "import": {
-        "types": "./dist/index.d.ts",
-        "default": "./dist/index.js"
-      },
-      "require": {
-        "types": "./dist/index.d.cts",
-        "default": "./dist/index.cjs"
-      }
-    }
+    "nazar-audit": "./dist/cli.mjs"
   },
   "files": [
     "dist",
@@ -92,5 +77,11 @@
     "typescript": "npm:@typescript/typescript6@^6.0.2",
     "typescript-eslint": "^8.65.0",
     "vitest": "^4.1.10"
+  },
+  "dependencies": {
+    "citty": "0.2.2",
+    "picocolors": "1.1.1",
+    "valibot": "1.4.2",
+    "yaml": "2.9.0"
   }
 }
