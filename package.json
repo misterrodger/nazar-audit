@@ -1,0 +1,96 @@
+{
+  "name": "nazar-audit",
+  "version": "0.1.0",
+  "description": "A modern, security-conscious package vulnerability scanner for the JavaScript ecosystem. Wraps npm/pnpm/yarn audit with exception management, multiple output formats, and fix availability reporting.",
+  "license": "MIT",
+  "author": "John Rodger",
+  "repository": {
+    "type": "git",
+    "url": "https://github.com/misterrodger/nazar-audit"
+  },
+  "homepage": "https://github.com/misterrodger/nazar-audit#readme",
+  "bugs": {
+    "url": "https://github.com/misterrodger/nazar-audit/issues"
+  },
+  "type": "module",
+  "engines": {
+    "node": ">=18.0.0"
+  },
+  "bin": {
+    "nazar-audit": "./dist/cli.js"
+  },
+  "main": "./dist/index.cjs",
+  "module": "./dist/index.js",
+  "types": "./dist/index.d.ts",
+  "exports": {
+    ".": {
+      "import": {
+        "types": "./dist/index.d.ts",
+        "default": "./dist/index.js"
+      },
+      "require": {
+        "types": "./dist/index.d.cts",
+        "default": "./dist/index.cjs"
+      }
+    }
+  },
+  "files": [
+    "dist",
+    "README.md",
+    "LICENSE"
+  ],
+  "scripts": {
+    "build": "tsdown",
+    "typecheck": "tsc --noEmit",
+    "lint": "eslint src",
+    "lint:fix": "eslint src --fix",
+    "format": "prettier --write \"src/**/*.ts\"",
+    "format:check": "prettier --check \"src/**/*.ts\"",
+    "test": "vitest run",
+    "test:watch": "vitest",
+    "test:coverage": "vitest run --coverage",
+    "audit": "npm audit --audit-level=high",
+    "depcheck": "knip --dependencies",
+    "jscpd": "jscpd src/ --min-lines 10 --min-tokens 100 --ignore \"**/*.test.*\"",
+    "license-check": "license-compliance --allow 'MIT;ISC;Apache-2.0;BSD-2-Clause;BSD-3-Clause;0BSD;CC0-1.0;CC-BY-3.0;CC-BY-4.0;Python-2.0;Unlicense;MPL-2.0;BlueOak-1.0.0' --exclude 'spdx-ranges'",
+    "clean": "rm -rf dist coverage",
+    "ship": "bash scripts/ship.sh",
+    "prepublishOnly": "npm run build",
+    "publish:dry": "npm run build && npm publish --dry-run",
+    "publish:live": "npm run build && npm publish --access public"
+  },
+  "keywords": [
+    "npm",
+    "audit",
+    "security",
+    "vulnerability",
+    "scanner",
+    "exceptions",
+    "allowlist",
+    "sarif",
+    "ci",
+    "pnpm",
+    "yarn",
+    "dependencies",
+    "supply-chain"
+  ],
+  "devDependencies": {
+    "@eslint/js": "^10.0.1",
+    "@total-typescript/ts-reset": "0.6.1",
+    "@types/node": "^26.1.2",
+    "@typescript/native": "npm:typescript@^7.0.2",
+    "@vitest/coverage-v8": "^4.1.10",
+    "@vitest/eslint-plugin": "^1.6.24",
+    "eslint": "^10.8.0",
+    "eslint-plugin-functional": "^10.0.0",
+    "globals": "^17.8.0",
+    "jscpd": "^5.0.14",
+    "knip": "6.31.0",
+    "license-compliance": "4.0.0",
+    "prettier": "^3.9.6",
+    "tsdown": "0.22.14",
+    "typescript": "npm:@typescript/typescript6@^6.0.2",
+    "typescript-eslint": "^8.65.0",
+    "vitest": "^4.1.10"
+  }
+}
