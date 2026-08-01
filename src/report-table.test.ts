@@ -192,7 +192,7 @@ describe('formatTable', () => {
       })
       const output = stripAnsi(formatTable(result, undefined))
 
-      expect(output).toContain('Found 1 package with vulnerabilities')
+      expect(output).toContain('Found 1 package with 1 vulnerability')
     })
 
     it('shows unused exception warning', () => {

@@ -80,7 +80,7 @@ export default tseslint.config(
   // ── Source files (non-test): functional rules ─────────────────────────
   {
     files: ['src/**/*.ts'],
-    ignores: ['src/**/*.test.ts'],
+    ignores: ['src/**/*.test.ts', 'src/test-helpers.ts'],
     plugins: { functional },
     rules: {
       'functional/no-classes': 'error',
