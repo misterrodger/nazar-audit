@@ -60,13 +60,8 @@ else
   git push --set-upstream origin "$current_branch"
 fi
 
-GREEN='\033[0;32m'
-CYAN='\033[0;36m'
-BOLD='\033[1m'
-RESET='\033[0m'
-
-echo ""
-echo "${GREEN}==========================================${RESET}"
-echo "${GREEN}${BOLD}  nazar-audit shipped successfully${RESET}"
-echo "${CYAN}  Branch: ${current_branch}${RESET}"
-echo "${GREEN}==========================================${RESET}"
+printf '\n'
+printf '\033[0;32m==========================================\033[0m\n'
+printf '\033[0;32m\033[1m  nazar-audit shipped successfully\033[0m\n'
+printf '\033[0;36m  Branch: %s\033[0m\n' "$current_branch"
+printf '\033[0;32m==========================================\033[0m\n'
