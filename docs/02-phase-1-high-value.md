@@ -109,8 +109,6 @@ Handles flaky registry responses in CI environments without failing the build.
 
 ## P1.11 CLI Branding Art
 
-Display a nazar (evil eye) amulet as ASCII/Unicode art in the CLI output:
-- Show on `--help`, `--version`, or as a banner before scan results
-- Use Unicode box-drawing and color (via picocolors) for a compact, distinctive look
-- Respect `NO_COLOR` by falling back to plain ASCII
-- Keep it small (3-5 lines) so it doesn't dominate the output
+**Status:** Implemented in P0.11.
+
+Unicode nazar eye art displayed at startup, with version text. Colors via `picocolors`, respects `NO_COLOR`.

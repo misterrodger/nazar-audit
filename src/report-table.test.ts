@@ -25,6 +25,7 @@ describe('formatTable', () => {
     expect(output).toContain('Severity')
     expect(output).toContain('Package')
     expect(output).toContain('Title')
+    expect(output).toContain('Paths')
     expect(output).toContain('Fix')
     expect(output).toContain('URL')
   })
@@ -165,9 +166,9 @@ describe('formatTable', () => {
   })
 
   describe('meta-vulnerabilities', () => {
-    it('shows via package name for string-only via entries', () => {
+    it('shows transitive label and via path for string-only via entries', () => {
       const result = makeScanResult({
-        unhandled: [makeVuln({ advisories: [], via: ['upstream-pkg'] })],
+        unhandled: [makeVuln({ advisories: [], via: ['upstream-pkg'], nodes: [] })],
         metadata: {
           ...makeScanResult().metadata,
           total: 1,
@@ -176,7 +177,42 @@ describe('formatTable', () => {
       })
       const output = stripAnsi(formatTable(result, undefined))
 
+      expect(output).toContain('(transitive)')
       expect(output).toContain('via upstream-pkg')
+    })
+  })
+
+  describe('paths column', () => {
+    it('shortens node_modules paths into readable chains', () => {
+      const result = makeScanResult({
+        unhandled: [
+          makeVuln({
+            nodes: ['node_modules/express/node_modules/body-parser'],
+          }),
+        ],
+        metadata: {
+          ...makeScanResult().metadata,
+          total: 1,
+          severityCounts: { info: 0, low: 0, moderate: 0, high: 1, critical: 0 },
+        },
+      })
+      const output = stripAnsi(formatTable(result, undefined))
+
+      expect(output).toContain('express>body-parser')
+    })
+
+    it('shows direct dependency path', () => {
+      const result = makeScanResult({
+        unhandled: [makeVuln({ nodes: ['node_modules/axios'] })],
+        metadata: {
+          ...makeScanResult().metadata,
+          total: 1,
+          severityCounts: { info: 0, low: 0, moderate: 0, high: 1, critical: 0 },
+        },
+      })
+      const output = stripAnsi(formatTable(result, undefined))
+
+      expect(output).toContain('axios')
     })
   })
 
