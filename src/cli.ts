@@ -4,6 +4,7 @@ import { scan, meetsThreshold } from './scan.js'
 import { formatTable } from './report-table.js'
 import { formatJson } from './report-json.js'
 import { VERSION } from './index.js'
+import { getBanner } from './banner.js'
 
 const isSeverity = (value: string): value is Severity =>
   (SEVERITY_ORDER as ReadonlyArray<string>).includes(value)
@@ -62,6 +63,9 @@ const main = defineCommand({
   /* eslint-disable functional/no-expression-statements, functional/no-conditional-statements, functional/no-try-statements, functional/immutable-data, no-console */
   run: async ({ args }) => {
     try {
+      console.log(getBanner())
+      console.log()
+
       const level = parseSeverity(args.level)
       const filterTable = parseSeverity(args['filter-table'])
       const format = args.format === 'json' ? 'json' : 'table'
