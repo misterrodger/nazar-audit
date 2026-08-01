@@ -1,4 +1,4 @@
-import { type ScanResult, type Vulnerability } from './types.js'
+import type { ScanResult, Vulnerability } from './types.js'
 import { formatTable } from './report-table.js'
 
 // eslint-disable-next-line no-control-regex
@@ -194,7 +194,7 @@ describe('formatTable', () => {
       expect(output).not.toContain('Low vuln')
     })
 
-    it('shows no vulnerabilities message when filter excludes all', () => {
+    it('shows filter-aware message when filter excludes all', () => {
       const result = makeScanResult({
         unhandled: [makeVuln({ severity: 'low' })],
         metadata: {
@@ -205,7 +205,7 @@ describe('formatTable', () => {
       })
       const output = stripAnsi(formatTable(result, 'critical'))
 
-      expect(output).toContain('No vulnerabilities found.')
+      expect(output).toContain('No vulnerabilities at or above critical severity.')
     })
   })
 

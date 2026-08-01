@@ -42,6 +42,15 @@ describe('applyExceptions', () => {
       expect(result.matched[0]!.matchedVulnerability).toBe('testpkg')
     })
 
+    it('does not match partial GHSA ID prefix', () => {
+      const vulns = [makeVuln()] as const
+      const exceptions: ReadonlyArray<ExceptionEntry> = [{ id: 'GHSA-aaaa' }]
+      const result = applyExceptions(vulns, exceptions, NOW)
+
+      expect(result.unhandled).toHaveLength(1)
+      expect(result.unused).toHaveLength(1)
+    })
+
     it('does not match unrelated GHSA ID', () => {
       const vulns = [makeVuln()] as const
       const exceptions: ReadonlyArray<ExceptionEntry> = [{ id: 'GHSA-xxxx-yyyy-zzzz' }]
@@ -124,6 +133,17 @@ describe('applyExceptions', () => {
 
       expect(result.unhandled).toHaveLength(0)
       expect(result.expired).toHaveLength(0)
+      expect(result.matched).toHaveLength(1)
+    })
+
+    it('treats unparseable expiry as not expired', () => {
+      const vulns = [makeVuln()] as const
+      const exceptions: ReadonlyArray<ExceptionEntry> = [
+        { id: 'GHSA-aaaa-bbbb-cccc', expiry: 'not-a-date' },
+      ]
+      const result = applyExceptions(vulns, exceptions, NOW)
+
+      expect(result.unhandled).toHaveLength(0)
       expect(result.matched).toHaveLength(1)
     })
 

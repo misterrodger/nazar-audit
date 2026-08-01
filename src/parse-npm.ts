@@ -1,56 +1,61 @@
+import * as v from 'valibot'
 import {
   type Advisory,
   type FixAvailability,
   type Result,
   type Severity,
+  type ViaEntry,
   type Vulnerability,
   SEVERITY_ORDER,
   ok,
   err,
 } from './types.js'
 
-type RawNpmAuditReport = Readonly<{
-  auditReportVersion: number
-  vulnerabilities: Readonly<Record<string, RawVulnerability>>
-}>
+const RawCvssSchema = v.object({
+  score: v.number(),
+  vectorString: v.optional(v.nullable(v.string())),
+})
 
-type RawVulnerability = Readonly<{
-  name: string
-  severity: string
-  isDirect: boolean
-  via: ReadonlyArray<unknown>
-  effects: ReadonlyArray<string>
-  range: string
-  nodes: ReadonlyArray<string>
-  fixAvailable: boolean | RawFixObject
-}>
+const RawAdvisorySchema = v.object({
+  source: v.number(),
+  name: v.string(),
+  dependency: v.string(),
+  title: v.string(),
+  url: v.string(),
+  severity: v.string(),
+  cwe: v.array(v.string()),
+  cvss: RawCvssSchema,
+  range: v.string(),
+})
 
-type RawFixObject = Readonly<{
-  name: string
-  version: string
-  isSemVerMajor: boolean
-}>
+const RawFixObjectSchema = v.object({
+  name: v.string(),
+  version: v.string(),
+  isSemVerMajor: v.boolean(),
+})
 
-type RawAdvisory = Readonly<{
-  source: number
-  name: string
-  dependency: string
-  title: string
-  url: string
-  severity: string
-  cwe: ReadonlyArray<string>
-  cvss: Readonly<{
-    score: number
-    vectorString: string | undefined
-  }>
-  range: string
-}>
+const RawVulnerabilitySchema = v.object({
+  name: v.string(),
+  severity: v.string(),
+  isDirect: v.boolean(),
+  via: v.array(v.unknown()),
+  effects: v.array(v.string()),
+  range: v.string(),
+  nodes: v.array(v.string()),
+  fixAvailable: v.union([v.boolean(), RawFixObjectSchema]),
+})
+
+const RawNpmAuditReportSchema = v.object({
+  auditReportVersion: v.number(),
+  vulnerabilities: v.record(v.string(), RawVulnerabilitySchema),
+})
+
+type RawAdvisory = v.InferOutput<typeof RawAdvisorySchema>
+type RawFixObject = v.InferOutput<typeof RawFixObjectSchema>
+type RawVulnerability = v.InferOutput<typeof RawVulnerabilitySchema>
 
 const isSeverity = (value: string): value is Severity =>
   (SEVERITY_ORDER as ReadonlyArray<string>).includes(value)
-
-const isRawAdvisory = (entry: unknown): entry is RawAdvisory =>
-  typeof entry === 'object' && !!entry && 'source' in entry && 'title' in entry
 
 const parseAdvisory = (raw: RawAdvisory): Advisory => ({
   source: raw.source,
@@ -67,8 +72,11 @@ const parseAdvisory = (raw: RawAdvisory): Advisory => ({
   range: raw.range,
 })
 
-const parseViaEntry = (entry: unknown): Advisory | string =>
-  typeof entry === 'string' ? entry : isRawAdvisory(entry) ? parseAdvisory(entry) : String(entry)
+const parseViaEntry = (entry: unknown): ViaEntry | undefined => {
+  const advisory = v.safeParse(RawAdvisorySchema, entry)
+
+  return typeof entry === 'string' ? entry : advisory.success ? parseAdvisory(advisory.output) : undefined
+}
 
 const parseFixAvailable = (raw: boolean | RawFixObject): FixAvailability =>
   raw === false
@@ -80,7 +88,7 @@ const parseFixAvailable = (raw: boolean | RawFixObject): FixAvailability =>
         : { kind: 'compatible' }
 
 const parseVulnerability = (raw: RawVulnerability): Vulnerability => {
-  const via = raw.via.map(parseViaEntry)
+  const via = raw.via.map(parseViaEntry).filter((v): v is ViaEntry => v !== undefined)
   const advisories = via.filter((v): v is Advisory => typeof v !== 'string')
 
   return {
@@ -96,17 +104,29 @@ const parseVulnerability = (raw: RawVulnerability): Vulnerability => {
   }
 }
 
-const isRawAuditReport = (data: unknown): data is RawNpmAuditReport =>
-  typeof data === 'object' && !!data && 'auditReportVersion' in data && 'vulnerabilities' in data
+const safeJsonParse = (jsonString: string): Result<unknown> => {
+  // eslint-disable-next-line functional/no-try-statements -- JSON.parse is the only safe way to parse JSON
+  try {
+    return ok(JSON.parse(jsonString))
+  } catch (e: unknown) {
+    return err(`Failed to parse JSON: ${e instanceof Error ? e.message : String(e)}`)
+  }
+}
+
+const parseReport = (data: unknown): Result<ReadonlyArray<Vulnerability>> => {
+  const reportResult = v.safeParse(RawNpmAuditReportSchema, data)
+
+  return !reportResult.success
+    ? err(`Invalid npm audit output: ${reportResult.issues.map((i) => i.message).join(', ')}`)
+    : reportResult.output.auditReportVersion !== 2
+      ? err(
+          `Unsupported audit report version: ${String(reportResult.output.auditReportVersion)}. Only version 2 (npm v7+) is supported.`,
+        )
+      : ok(Object.values(reportResult.output.vulnerabilities).map(parseVulnerability))
+}
 
 export const parseNpmAuditJson = (jsonString: string): Result<ReadonlyArray<Vulnerability>> => {
-  const parsed: unknown = JSON.parse(jsonString)
+  const jsonResult = safeJsonParse(jsonString)
 
-  return !isRawAuditReport(parsed)
-    ? err('Invalid npm audit output: missing auditReportVersion or vulnerabilities field')
-    : parsed.auditReportVersion !== 2
-      ? err(
-          `Unsupported audit report version: ${String(parsed.auditReportVersion)}. Only version 2 (npm v7+) is supported.`,
-        )
-      : ok(Object.values(parsed.vulnerabilities).map(parseVulnerability))
+  return !jsonResult.ok ? jsonResult : parseReport(jsonResult.data)
 }

@@ -16,11 +16,14 @@ Flat file structure -- extract into folders when complexity grows (D17).
 src/
   cli.ts              -- citty entry point, arg parsing, single try/catch boundary
   scan.ts             -- orchestrator: run audit, parse, apply exceptions, produce ScanResult
-  parse-npm.ts        -- npm v7+ JSON -> Vulnerability[]
-  exceptions.ts       -- YAML config loading, Valibot validation, matching, unused detection
-  report-table.ts     -- fixed-column table with picocolors
+  parse-npm.ts        -- npm v7+ JSON -> Vulnerability[] (Valibot-validated)
+  config.ts           -- YAML config loading, Valibot validation
+  exceptions.ts       -- exception matching, expiry, unused detection
+  report-table.ts     -- fixed-column table with picocolors, dynamic column widths
   report-json.ts      -- normalized JSON output (schema version 1)
+  banner.ts           -- nazar eye art and version text for CLI branding
   types.ts            -- all types: Vulnerability, Advisory, FixAvailability, Result, etc.
+  index.ts            -- VERSION constant
 ```
 
 ## Key Design Decisions
@@ -38,14 +41,14 @@ src/
 
 ## Runtime Dependencies
 
-Four total (D5): `citty` (CLI), `yaml` (config parsing), `picocolors` (terminal colors), `valibot` (config validation).
+Four total (D5): `citty` (CLI), `yaml` (config parsing), `picocolors` (terminal colors), `valibot` (config + npm JSON validation).
 
 ## TypeScript
 
 - Strict mode with `noUncheckedIndexedAccess`, `exactOptionalPropertyTypes`, `verbatimModuleSyntax`
 - TypeScript 7 (native Go compiler) for builds, TypeScript 6 side-by-side for eslint tooling
 - Use `import type { ... }` for type-only imports
-- Validate external data (npm audit JSON) with Valibot at the boundary; `@total-typescript/ts-reset` makes `JSON.parse` etc. return `unknown`
+- Validate all external data (npm audit JSON + config YAML) with Valibot schemas at the boundary; `@total-typescript/ts-reset` makes `JSON.parse` etc. return `unknown`
 - Use `as const satisfies` for config objects
 - `null` banned in lint -- use `undefined` only
 

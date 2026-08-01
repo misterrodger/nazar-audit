@@ -1,5 +1,5 @@
 import { type ScanResult, type Vulnerability } from './types.js'
-import { meetsThreshold } from './scan.js'
+import { passesThreshold } from './scan.js'
 
 const makeVuln = (overrides: Partial<Vulnerability> = {}): Vulnerability => ({
   name: 'testpkg',
@@ -34,9 +34,9 @@ const makeScanResult = (overrides: Partial<ScanResult> = {}): ScanResult => ({
   ...overrides,
 })
 
-describe('meetsThreshold', () => {
+describe('passesThreshold', () => {
   it('passes when no unhandled vulnerabilities', () => {
-    expect(meetsThreshold(makeScanResult(), 'low')).toBe(true)
+    expect(passesThreshold(makeScanResult(), 'low')).toBe(true)
   })
 
   it('fails when unhandled vulnerability meets threshold', () => {
@@ -44,7 +44,7 @@ describe('meetsThreshold', () => {
       unhandled: [makeVuln({ severity: 'high' })],
     })
 
-    expect(meetsThreshold(result, 'high')).toBe(false)
+    expect(passesThreshold(result, 'high')).toBe(false)
   })
 
   it('passes when unhandled vulnerability is below threshold', () => {
@@ -52,7 +52,7 @@ describe('meetsThreshold', () => {
       unhandled: [makeVuln({ severity: 'low' })],
     })
 
-    expect(meetsThreshold(result, 'high')).toBe(true)
+    expect(passesThreshold(result, 'high')).toBe(true)
   })
 
   it('fails when any unhandled vulnerability meets threshold', () => {
@@ -60,7 +60,7 @@ describe('meetsThreshold', () => {
       unhandled: [makeVuln({ severity: 'low' }), makeVuln({ severity: 'critical' })],
     })
 
-    expect(meetsThreshold(result, 'high')).toBe(false)
+    expect(passesThreshold(result, 'high')).toBe(false)
   })
 
   it('defaults to low threshold when level is undefined', () => {
@@ -68,7 +68,7 @@ describe('meetsThreshold', () => {
       unhandled: [makeVuln({ severity: 'low' })],
     })
 
-    expect(meetsThreshold(result, undefined)).toBe(false)
+    expect(passesThreshold(result, undefined)).toBe(false)
   })
 
   it('passes info-level vulns when threshold is low', () => {
@@ -76,7 +76,7 @@ describe('meetsThreshold', () => {
       unhandled: [makeVuln({ severity: 'info' })],
     })
 
-    expect(meetsThreshold(result, 'low')).toBe(true)
+    expect(passesThreshold(result, 'low')).toBe(true)
   })
 
   it.each([
@@ -93,7 +93,7 @@ describe('meetsThreshold', () => {
         unhandled: [makeVuln({ severity })],
       })
 
-      expect(meetsThreshold(result, level)).toBe(expected)
+      expect(passesThreshold(result, level)).toBe(expected)
     },
   )
 })

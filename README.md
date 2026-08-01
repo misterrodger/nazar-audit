@@ -10,14 +10,13 @@ Named after the **nazar** -- the protective eye amulet found across the Mediterr
 
 ## Features
 
-- Wraps native package manager audit (`npm`, `pnpm`, `yarn`, `bun`) with auto-detection
+- Wraps `npm audit --json` with structured output and exit code control
 - **Exception management** with expiry dates, notes, and audit trail (`.nazar.yml`)
-- **Multiple output formats**: table, JSON, SARIF (for GitHub Code Scanning)
+- **Multiple output formats**: colored table, normalized JSON
 - **Fix availability display** showing upgrade paths and breaking change warnings
 - **Severity thresholds** that independently control exit behavior and table display
-- **Module-level and path-level ignoring** with wildcard support
-- **Secure by design** -- uses `execFile` (no shell), validates all inputs
-- Zero/minimal runtime dependencies
+- **Secure by design** -- uses `execFile` (no shell), validates all inputs with Valibot
+- Four runtime dependencies: `citty`, `yaml`, `picocolors`, `valibot`
 
 ## Installation
 
@@ -31,19 +30,19 @@ npx nazar-audit audit
 
 ```bash
 # Run an audit
-nazar-audit audit
+nazar-audit
 
 # Set severity threshold
-nazar-audit audit --level high
+nazar-audit --level high
 
-# Exclude specific advisories
-nazar-audit audit --exclude GHSA-xxxx,CVE-2024-1234
+# Ignore specific advisories
+nazar-audit --ignore GHSA-xxxx,CVE-2024-1234
 
 # JSON output
-nazar-audit audit --format json
+nazar-audit --format json
 
 # Filter table display while keeping full exit behavior
-nazar-audit audit --level moderate --filter-table high
+nazar-audit --level moderate --filter-table high
 ```
 
 ## Exception Management
@@ -56,26 +55,22 @@ exceptions:
     expiry: "2025-06-01"
     notes: "No impact -- we don't use the affected API"
 
-  - module: "minimist"
+  - id: "CVE-2024-1234"
     notes: "Transitive dev-only dependency, not exposed"
 ```
 
-nazar-audit warns about unused exceptions and expired entries.
+nazar-audit warns about unused exceptions and expired entries in the output.
 
 ## CLI Options
 
-| Flag | Short | Description |
-|---|---|---|
-| `--exclude <ids>` | `-x` | Exception IDs to ignore (comma-separated) |
-| `--module-ignore <names>` | `-m` | Modules to ignore (comma-separated) |
-| `--level <severity>` | `-l` | Minimum severity for non-zero exit |
-| `--filter-table [level]` | `-f` | Filter table display by severity |
-| `--production` | `-p` | Skip devDependencies |
-| `--format <type>` | | Output format: table, json, sarif |
-| `--registry <url>` | `-r` | Override registry URL |
-| `--include-columns <cols>` | `-i` | Columns to include in table |
-| `--config <path>` | | Path to config file |
-| `--fail-on <mode>` | | Exit behavior: all, upgradable, patchable |
+| Flag | Description |
+|---|---|
+| `--level <severity>` | Minimum severity for non-zero exit (`info`, `low`, `moderate`, `high`, `critical`) |
+| `--filter-table <severity>` | Only show rows at or above this severity in the table |
+| `--format <type>` | Output format: `table` (default) or `json` |
+| `--ignore <ids>` | Advisory IDs to ignore (comma-separated GHSA/CVE) |
+| `--production` | Pass `--omit=dev` to npm audit |
+| `--config <path>` | Path to `.nazar.yml` config file |
 
 ## Exit Codes
 

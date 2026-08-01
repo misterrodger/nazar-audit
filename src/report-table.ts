@@ -30,7 +30,7 @@ const MAX_MODULE_WIDTH = 30
 const DEFAULT_TERMINAL_WIDTH = 160
 const URL_ESTIMATED_WIDTH = 60
 
-const SEVERITY_DESC = ['critical', 'high', 'moderate', 'low', 'info'] as const
+const SEVERITY_DESC = [...SEVERITY_ORDER].reverse()
 
 const SEVERITY_COLORIZERS: Readonly<Record<Severity, (s: string) => string>> = {
   critical: (s: string) => pc.bold(pc.red(s)),
@@ -114,7 +114,7 @@ const getTerminalWidth = (stdout: Readonly<{ columns?: number }> = process.stdou
 
 const calculateWidths = (rows: ReadonlyArray<TableRow>): ColumnWidths => {
   const severity = Math.max(8, ...rows.map((r) => r.severity.length))
-  const module_ = Math.min(MAX_MODULE_WIDTH, Math.max(6, ...rows.map((r) => r.module.length)))
+  const module_ = Math.min(MAX_MODULE_WIDTH, Math.max(7, ...rows.map((r) => r.module.length)))
   const fix = Math.max(3, ...rows.map((r) => r.fix.length))
 
   const fixedWidth = severity + module_ + fix + URL_ESTIMATED_WIDTH + GAP_WIDTH * 4
@@ -217,7 +217,12 @@ export const formatTable = (result: ScanResult, filterSeverity: Severity | undef
   const sorted = sortBySeverity(filterVulnerabilities(result.unhandled, filterSeverity))
   const rows = sorted.flatMap(vulnToRows)
 
+  const emptyMessage =
+    filterSeverity !== undefined && result.unhandled.length > 0
+      ? `No vulnerabilities at or above ${filterSeverity} severity.`
+      : 'No vulnerabilities found.'
+
   return rows.length === 0
-    ? `\n${pc.green('No vulnerabilities found.')}\n`
+    ? `\n${pc.green(emptyMessage)}\n`
     : formatTableOutput(rows, result)
 }

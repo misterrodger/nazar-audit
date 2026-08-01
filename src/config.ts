@@ -32,7 +32,8 @@ const validateConfig = (raw: unknown): Result<NazarConfig> => {
 export const parseConfigYaml = (yamlString: string): Result<NazarConfig> => {
   const raw: unknown = parseYaml(yamlString)
 
-  return !raw ? ok({}) : validateConfig(raw)
+  // eslint-disable-next-line no-restricted-syntax -- YAML parser returns null for empty documents
+  return raw === undefined || raw === null ? ok({}) : validateConfig(raw)
 }
 
 export const loadConfigFile = (cwd: string): Result<NazarConfig> => {
@@ -40,3 +41,8 @@ export const loadConfigFile = (cwd: string): Result<NazarConfig> => {
 
   return !existsSync(configPath) ? ok({}) : parseConfigYaml(readFileSync(configPath, 'utf-8'))
 }
+
+export const loadConfigPath = (filePath: string): Result<NazarConfig> =>
+  !existsSync(filePath)
+    ? err(`Config file not found: ${filePath}`)
+    : parseConfigYaml(readFileSync(filePath, 'utf-8'))
