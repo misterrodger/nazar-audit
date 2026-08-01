@@ -38,7 +38,7 @@ exceptions:
         "format": "json",
         "level": "high",
         "production": true,
-        "timeout": undefined,
+        "timeoutSeconds": undefined,
       }
     `)
   })
@@ -62,7 +62,7 @@ exceptions:
         "format": undefined,
         "level": undefined,
         "production": undefined,
-        "timeout": undefined,
+        "timeoutSeconds": undefined,
       }
     `)
   })
@@ -152,6 +152,32 @@ format: bad
 
     expect(error).toContain(', ')
     expect(error).toMatch(/Invalid .nazar.yml:.*,.*/)
+  })
+
+  describe('timeoutSeconds validation', () => {
+    it('accepts a positive number', () => {
+      const config = expectOk(parseConfigYaml('timeoutSeconds: 120'))
+
+      expect(config.timeoutSeconds).toBe(120)
+    })
+
+    it('rejects zero', () => {
+      const error = expectErr(parseConfigYaml('timeoutSeconds: 0'))
+
+      expect(error).toContain('Invalid .nazar.yml')
+    })
+
+    it('rejects negative values', () => {
+      const error = expectErr(parseConfigYaml('timeoutSeconds: -5'))
+
+      expect(error).toContain('Invalid .nazar.yml')
+    })
+
+    it('rejects string values', () => {
+      const error = expectErr(parseConfigYaml('timeoutSeconds: "sixty"'))
+
+      expect(error).toContain('Invalid .nazar.yml')
+    })
   })
 
   describe('filterTable validation', () => {

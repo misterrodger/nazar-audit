@@ -56,6 +56,7 @@ const runNpmAudit = (
     maxBuffer: MAX_BUFFER,
     timeout: timeoutMs,
     killSignal: 'SIGTERM',
+    ...(process.platform === 'win32' ? { shell: true } : {}),
   }).then(
     ({ stdout }) => (stdout ? ok(stdout) : err('npm audit produced no output')),
     (error: unknown) => {
@@ -137,7 +138,9 @@ const scanWithConfig = async (
   options: ScanOptions,
   config: NazarConfig,
 ): Promise<Result<ScanResult>> => {
-  const timeoutMs = options.timeoutMs ?? config.timeout ?? DEFAULT_TIMEOUT_MS
+  const configTimeoutMs =
+    config.timeoutSeconds !== undefined ? config.timeoutSeconds * 1000 : undefined
+  const timeoutMs = options.timeoutMs ?? configTimeoutMs ?? DEFAULT_TIMEOUT_MS
   const auditResult = await runNpmAudit(options.cwd, buildNpmArgs(options.production), timeoutMs)
 
   return !auditResult.ok

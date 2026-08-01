@@ -194,7 +194,12 @@ describe('formatTable', () => {
 
     it('shows filter-specific message when vulns exist but all below filter', () => {
       const result = makeScanResult({
-        unhandled: [makeVuln({ severity: 'info' })],
+        unhandled: [
+          makeVuln({
+            severity: 'info',
+            advisories: [{ ...makeVuln().advisories[0]!, severity: 'info' }],
+          }),
+        ],
         metadata: {
           ...makeScanResult().metadata,
           total: 1,

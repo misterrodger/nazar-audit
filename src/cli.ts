@@ -86,8 +86,9 @@ const main = defineCommand({
       description: 'Path to config file (default: .nazar.yml in cwd)',
     },
   },
-  /* eslint-disable functional/no-expression-statements, functional/no-conditional-statements, functional/no-try-statements, functional/immutable-data, no-console */
+  /* eslint-disable functional/no-expression-statements, functional/no-conditional-statements, functional/no-try-statements, functional/immutable-data, functional/no-let, no-console */
   run: async ({ args }) => {
+    let spinner: ReturnType<typeof createSpinner> | undefined
     try {
       const levelResult = parseSeverity('--level', args.level)
       if (!levelResult.ok) {
@@ -124,8 +125,7 @@ const main = defineCommand({
 
       const cliIgnores = parseIgnores(args.ignore)
 
-      const spinner =
-        formatResult.data === 'table' ? createSpinner('Scanning...').start() : undefined
+      spinner = formatResult.data === 'table' ? createSpinner('Scanning...').start() : undefined
 
       const result = await scan({
         cwd: process.cwd(),
@@ -155,11 +155,12 @@ const main = defineCommand({
         process.exitCode = EXIT_VULNERABILITIES
       }
     } catch (error: unknown) {
+      if (spinner) spinner.error()
       console.error(`Error: ${error instanceof Error ? error.message : String(error)}`)
       process.exitCode = EXIT_ERROR
     }
   },
-  /* eslint-enable functional/no-expression-statements, functional/no-conditional-statements, functional/no-try-statements, functional/immutable-data, no-console */
+  /* eslint-enable functional/no-expression-statements, functional/no-conditional-statements, functional/no-try-statements, functional/immutable-data, functional/no-let, no-console */
 })
 
 // eslint-disable-next-line functional/no-expression-statements

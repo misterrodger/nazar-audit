@@ -142,7 +142,7 @@ Decisions made during the MVP planning session, preserved for future reference.
 
 ## D24. npm audit timeout
 
-**Decision:** Configurable via `--timeout <seconds>` CLI flag or `timeout` config key (in seconds). Default: 60 seconds. CLI flag takes precedence over config.
+**Decision:** Configurable via `--timeout <seconds>` CLI flag or `timeoutSeconds` config key. Default: 60 seconds. CLI flag takes precedence over config. The config key is named `timeoutSeconds` so users know the unit without reading documentation.
 
 **Rationale:** 60 seconds covers the vast majority of CI pipelines. Large monorepos or slow registries may need more. `SIGTERM` is used as the kill signal so npm can clean up gracefully.
 
@@ -175,3 +175,27 @@ Decisions made during the MVP planning session, preserved for future reference.
 **Decision:** `nanospinner` for the scanning progress indicator. Only shown for `--format table`.
 
 **Rationale:** `nanospinner` (20 kB) depends on `picocolors`, which the project already uses -- zero new transitive dependencies. `yocto-spinner` would have added `yoctocolors` as a new dep tree. `ora` is 280 kB with many dependencies. The spinner is suppressed for JSON output to avoid corrupting machine-parseable output.
+
+## D30. Unknown severity default
+
+**Decision:** Unknown severity values from npm audit JSON are mapped to `critical` instead of `info`.
+
+**Rationale:** A conservative approach -- if npm introduces a new severity level that nazar-audit does not recognize, treating it as critical ensures it surfaces to the user rather than being silently deprioritized.
+
+## D31. --filter-table row-level filtering
+
+**Decision:** `--filter-table` filters the rendered table rows by advisory severity, not by the parent vulnerability's rolled-up severity.
+
+**Rationale:** A vulnerability may have a rolled-up severity of `high` but contain individual advisories at different severity levels. Filtering at the row level means what the user sees matches what was filtered.
+
+## D32. Windows execFile compatibility
+
+**Decision:** Pass `shell: true` to `execFileAsync` on Windows only.
+
+**Rationale:** On Windows, npm is `npm.cmd` which requires a shell to execute. Without `shell: true`, `execFile` fails with ENOENT on Windows. The option is gated to Windows via `process.platform === 'win32'` to avoid unnecessary shell spawning on Unix.
+
+## D33. Spinner lifecycle in error paths
+
+**Decision:** The spinner variable is hoisted above the `try` block so it can be stopped in the `catch` handler.
+
+**Rationale:** If an unexpected error occurs after the spinner is created but before normal error handling, the spinner would continue spinning indefinitely. Hoisting and stopping in `catch` ensures clean terminal output in all error paths.

@@ -52,7 +52,7 @@ export type NazarConfig = Readonly<{
   format?: 'table' | 'json' | undefined
   filterTable?: Severity | undefined
   production?: boolean | undefined
-  timeout?: number | undefined
+  timeoutSeconds?: number | undefined
   exceptions?: ReadonlyArray<ExceptionEntry> | undefined
 }>
 
