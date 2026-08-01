@@ -46,9 +46,9 @@ Decisions made during the MVP planning session, preserved for future reference.
 
 ## D8. Table output columns
 
-**Decision:** Fixed default table: Severity, Module, Title, Fix, URL. No `--include-columns` configurability.
+**Decision:** Fixed default table: Severity, Package, Title, Paths, Fix, URL. No `--include-columns` configurability.
 
-**Rationale:** Less config surface, ship faster. better-npm-audit had column configurability and it was rarely used. Add it in Phase 1 if users request it.
+**Rationale:** Less config surface, ship faster. "Paths" column shows shortened dependency chains (e.g. `pkg>dep`) for each advisory. "Module" renamed to "Package" for clarity. better-npm-audit had column configurability and it was rarely used. Add it in Phase 1 if users request it.
 
 ## D9. --filter-table default behavior
 
@@ -118,9 +118,9 @@ Decisions made during the MVP planning session, preserved for future reference.
 
 ## D20. Build target
 
-**Decision:** tsdown with `cli.ts` as sole entry point for MVP.
+**Decision:** tsdown with `cli.ts` as sole entry point for MVP. Output is `dist/cli.mjs`.
 
-**Rationale:** Produces a single bundled `cli.js`. No library exports needed yet. Add `index.ts` as a second entry point in Phase 2.
+**Rationale:** Produces a single bundled ESM file. No library exports needed yet. Add `index.ts` as a second entry point in Phase 2.
 
 ## D21. Implementation order
 
@@ -133,3 +133,39 @@ Decisions made during the MVP planning session, preserved for future reference.
 **Decision:** Renamed to `--ignore` / `-i`.
 
 **Rationale:** Concise, matches audit-tool conventions. `--exclude` was too generic and could be confused with excluding packages.
+
+## D23. Banner output gating
+
+**Decision:** Banner (nazar eye art) is only emitted for `--format table` output. Suppressed for `--format json`.
+
+**Rationale:** Banner text written to stdout corrupts machine-parseable JSON output, breaking downstream tooling that pipes `nazar-audit --format json` into `jq` or similar.
+
+## D24. npm audit timeout
+
+**Decision:** Configurable via `--timeout <seconds>` CLI flag or `timeout` config key (in seconds). Default: 60 seconds. CLI flag takes precedence over config.
+
+**Rationale:** 60 seconds covers the vast majority of CI pipelines. Large monorepos or slow registries may need more. `SIGTERM` is used as the kill signal so npm can clean up gracefully.
+
+## D25. Severity breakdown counts
+
+**Decision:** The severity breakdown in the table summary counts only unhandled (post-exception) vulnerabilities, not all discovered vulnerabilities.
+
+**Rationale:** The summary should reflect what the user needs to act on. Counting excepted vulnerabilities in the breakdown contradicts the purpose of exceptions.
+
+## D26. Terminal width in table output
+
+**Decision:** `calculateWidths` accepts an optional `terminalWidth` parameter. When omitted, it reads `process.stdout.columns` with a fallback of 160.
+
+**Rationale:** Injecting terminal width allows deterministic snapshot tests without environment-dependent column calculations. The 160-column default matches a wide terminal without line wrapping.
+
+## D27. severityIndex deduplication
+
+**Decision:** `severityIndex` lives in `types.ts` as a single exported function, imported by `scan.ts` and `report-table.ts`.
+
+**Rationale:** Two identical copies of the same function is a maintenance hazard. Centralizing in `types.ts` next to `SEVERITY_ORDER` keeps the severity logic cohesive.
+
+## D28. Test helpers -- Result narrowing
+
+**Decision:** `expectOk` and `expectErr` in `test-helpers.ts` use `expect.unreachable()` with the discriminated union's own narrowing rather than `as` casts.
+
+**Rationale:** Casts bypass the type system. After the `if (!result.ok)` guard, TypeScript narrows `result` to `{ ok: true; data: T }` naturally, so no cast is needed. `expect.unreachable()` provides a clear test failure message if the guard fails.

@@ -2,11 +2,23 @@ import { getBanner } from './banner.js'
 
 const identity = (s: string): string => s
 
-const noopColors = { blue: identity, cyan: identity, white: identity, bold: identity, dim: identity } as const
+const noopColors = {
+  blue: identity,
+  cyan: identity,
+  white: identity,
+  bold: identity,
+  dim: identity,
+} as const
 
 const fakeAnsi = (s: string): string => `\u001b[34m${s}\u001b[0m`
 
-const ansiColors = { blue: fakeAnsi, cyan: fakeAnsi, white: fakeAnsi, bold: fakeAnsi, dim: fakeAnsi } as const
+const ansiColors = {
+  blue: fakeAnsi,
+  cyan: fakeAnsi,
+  white: fakeAnsi,
+  bold: fakeAnsi,
+  dim: fakeAnsi,
+} as const
 
 const hasAnsi = (text: string): boolean => text.includes('\u001b[')
 

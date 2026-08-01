@@ -2,7 +2,7 @@ import * as v from 'valibot'
 import { parse as parseYaml } from 'yaml'
 import { readFileSync, existsSync } from 'node:fs'
 import { join } from 'node:path'
-import { type NazarConfig, type Result, ok, err } from './types.js'
+import { type NazarConfig, type Result, SEVERITY_ORDER, ok, err } from './types.js'
 
 const ExceptionEntrySchema = v.object({
   id: v.optional(v.string()),
@@ -14,10 +14,11 @@ const ExceptionEntrySchema = v.object({
 })
 
 const NazarConfigSchema = v.object({
-  level: v.optional(v.picklist(['info', 'low', 'moderate', 'high', 'critical'])),
+  level: v.optional(v.picklist([...SEVERITY_ORDER])),
   format: v.optional(v.picklist(['table', 'json'])),
-  filterTable: v.optional(v.picklist(['info', 'low', 'moderate', 'high', 'critical'])),
+  filterTable: v.optional(v.picklist([...SEVERITY_ORDER])),
   production: v.optional(v.boolean()),
+  timeout: v.optional(v.pipe(v.number(), v.minValue(1))),
   exceptions: v.optional(v.array(ExceptionEntrySchema)),
 })
 
@@ -28,6 +29,7 @@ const toNazarConfig = (raw: RawNazarConfig): NazarConfig => ({
   format: raw.format,
   filterTable: raw.filterTable,
   production: raw.production,
+  timeout: raw.timeout,
   exceptions: raw.exceptions,
 })
 

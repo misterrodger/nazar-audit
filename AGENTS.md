@@ -12,7 +12,7 @@ See [docs/decisions.md](docs/decisions.md) for all architectural decisions and t
 
 Flat file structure -- extract into folders when complexity grows (D17).
 
-```
+```text
 src/
   cli.ts              -- citty entry point, arg parsing, single try/catch boundary
   scan.ts             -- orchestrator: run audit, parse, apply exceptions, produce ScanResult
@@ -21,9 +21,10 @@ src/
   exceptions.ts       -- exception matching, expiry, unused detection
   report-table.ts     -- fixed-column table with picocolors, dynamic column widths
   report-json.ts      -- normalized JSON output (schema version 1)
-  banner.ts           -- nazar eye art and version text for CLI branding
-  types.ts            -- all types: Vulnerability, Advisory, FixAvailability, Result, etc.
+  banner.ts           -- nazar eye art and version text for CLI branding (table format only)
+  types.ts            -- all types, Result helpers, severityIndex, isSeverity
   index.ts            -- VERSION constant
+  test-helpers.ts     -- shared test factories (makeVuln, makeScanResult) and Result extractors
 ```
 
 ## Key Design Decisions
@@ -31,7 +32,7 @@ src/
 - **CLI-only MVP** -- no library exports until Phase 2 (D11)
 - **npm-only** -- no adapter abstraction until Phase 1 adds pnpm (D1)
 - **npm v7+ JSON only** -- no v6 schema support (D2)
-- **`execFile` not `exec`** -- no shell spawned, prevents command injection
+- **`execFile` not `exec`** -- no shell spawned, prevents command injection; 60s default timeout (D24)
 - **Discriminated unions** for polymorphic data (`FixAvailability`, `ViaEntry`)
 - **Result type** for error handling -- `{ ok: true, data: T } | { ok: false, error: string }` (D12)
 - **Functional style** -- pure functions, composition, immutable data

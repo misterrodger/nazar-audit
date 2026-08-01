@@ -70,6 +70,7 @@ nazar-audit warns about unused exceptions and expired entries in the output.
 | `--format <type>` | Output format: `table` (default) or `json` |
 | `--ignore <ids>` | Advisory IDs to ignore (comma-separated GHSA/CVE) |
 | `--production` | Pass `--omit=dev` to npm audit |
+| `--timeout <seconds>` | npm audit timeout in seconds (default: 60) |
 | `--config <path>` | Path to `.nazar.yml` config file |
 
 ## Exit Codes

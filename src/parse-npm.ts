@@ -71,7 +71,11 @@ const parseAdvisory = (raw: RawAdvisory): Advisory => ({
 const parseViaEntry = (entry: unknown): ViaEntry | undefined => {
   const advisory = v.safeParse(RawAdvisorySchema, entry)
 
-  return typeof entry === 'string' ? entry : advisory.success ? parseAdvisory(advisory.output) : undefined
+  return typeof entry === 'string'
+    ? entry
+    : advisory.success
+      ? parseAdvisory(advisory.output)
+      : undefined
 }
 
 const parseFixAvailable = (raw: boolean | RawFixObject): FixAvailability =>

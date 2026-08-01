@@ -133,7 +133,7 @@ Respects the [no-color.org](https://no-color.org) standard via `picocolors`:
 
 ## P0.10 CLI
 
-```
+```text
 nazar-audit [options]
 
 Options:
@@ -142,6 +142,7 @@ Options:
   --format <type>          Output format: table, json (default: table)
   --ignore <ids>           Advisory IDs to ignore (comma-separated)
   --production             Pass --omit=dev to npm audit
+  --timeout <seconds>      npm audit timeout in seconds (default: 60)
   --config <path>          Path to .nazar.yml config file
   --version                Show version
   --help                   Show help
@@ -149,4 +150,4 @@ Options:
 
 ## P0.11 CLI Branding
 
-Unicode nazar eye art displayed at startup, with version text. Colors applied via `picocolors` and respect `NO_COLOR`.
+Unicode nazar eye art displayed on table output only (suppressed for JSON to avoid corrupting machine-parseable output). Colors applied via `picocolors` and respect `NO_COLOR`.

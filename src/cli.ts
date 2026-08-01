@@ -34,6 +34,13 @@ const parseIgnores = (value: string | undefined): ReadonlyArray<string> =>
         .filter(Boolean)
     : []
 
+const parseTimeout = (value: string | undefined): Result<number | undefined> =>
+  value === undefined
+    ? ok(undefined)
+    : Number.isFinite(Number(value)) && Number(value) > 0
+      ? ok(Number(value) * 1000)
+      : err(`Invalid --timeout: "${value}". Must be a positive number (seconds)`)
+
 const EXIT_VULNERABILITIES = 1
 const EXIT_ERROR = 2
 
@@ -69,6 +76,10 @@ const main = defineCommand({
       description: 'Skip devDependencies (passes --omit=dev to npm)',
       default: false,
     },
+    timeout: {
+      type: 'string',
+      description: 'npm audit timeout in seconds (default: 60)',
+    },
     config: {
       type: 'string',
       description: 'Path to config file (default: .nazar.yml in cwd)',
@@ -77,9 +88,6 @@ const main = defineCommand({
   /* eslint-disable functional/no-expression-statements, functional/no-conditional-statements, functional/no-try-statements, functional/immutable-data, no-console */
   run: async ({ args }) => {
     try {
-      console.log(getBanner())
-      console.log()
-
       const levelResult = parseSeverity('--level', args.level)
       if (!levelResult.ok) {
         console.error(`Error: ${levelResult.error}`)
@@ -101,6 +109,18 @@ const main = defineCommand({
         return
       }
 
+      if (formatResult.data === 'table') {
+        console.log(getBanner())
+        console.log()
+      }
+
+      const timeoutResult = parseTimeout(args.timeout)
+      if (!timeoutResult.ok) {
+        console.error(`Error: ${timeoutResult.error}`)
+        process.exitCode = EXIT_ERROR
+        return
+      }
+
       const cliIgnores = parseIgnores(args.ignore)
 
       const result = await scan({
@@ -108,6 +128,7 @@ const main = defineCommand({
         production: args.production,
         cliIgnores,
         configPath: args.config,
+        timeoutMs: timeoutResult.data,
       })
 
       if (!result.ok) {

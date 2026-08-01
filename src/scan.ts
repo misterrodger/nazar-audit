@@ -8,7 +8,7 @@ import {
   type ScanResult,
   type Severity,
   type Vulnerability,
-  SEVERITY_ORDER,
+  severityIndex,
   ok,
   err,
 } from './types.js'
@@ -18,12 +18,14 @@ import { applyExceptions } from './exceptions.js'
 
 const execFileAsync = promisify(execFileCb)
 const MAX_BUFFER = 50 * 1024 * 1024
+const DEFAULT_TIMEOUT_MS = 60_000
 
 type ScanOptions = Readonly<{
   cwd: string
   production: boolean
   cliIgnores: ReadonlyArray<string>
   configPath: string | undefined
+  timeoutMs?: number | undefined
 }>
 
 const NPM_BIN = process.platform === 'win32' ? 'npm.cmd' : 'npm'
@@ -44,8 +46,17 @@ const extractErrorDetail = (error: unknown): Readonly<{ stdout: string; message:
         message: error instanceof Error ? error.message : String(error),
       }
 
-const runNpmAudit = (cwd: string, args: ReadonlyArray<string>): Promise<Result<string>> =>
-  execFileAsync(NPM_BIN, [...args], { cwd, maxBuffer: MAX_BUFFER }).then(
+const runNpmAudit = (
+  cwd: string,
+  args: ReadonlyArray<string>,
+  timeoutMs: number,
+): Promise<Result<string>> =>
+  execFileAsync(NPM_BIN, [...args], {
+    cwd,
+    maxBuffer: MAX_BUFFER,
+    timeout: timeoutMs,
+    killSignal: 'SIGTERM',
+  }).then(
     ({ stdout }) => (stdout ? ok(stdout) : err('npm audit produced no output')),
     (error: unknown) => {
       const { stdout, message } = extractErrorDetail(error)
@@ -54,16 +65,22 @@ const runNpmAudit = (cwd: string, args: ReadonlyArray<string>): Promise<Result<s
     },
   )
 
-const severityIndex = (severity: Severity): number => SEVERITY_ORDER.indexOf(severity)
-
-const EMPTY_COUNTS = { info: 0, low: 0, moderate: 0, high: 0, critical: 0 } as const satisfies Record<Severity, number>
+const EMPTY_COUNTS = {
+  info: 0,
+  low: 0,
+  moderate: 0,
+  high: 0,
+  critical: 0,
+} as const satisfies Record<Severity, number>
 
 const countBySeverity = (
   vulns: ReadonlyArray<Vulnerability>,
 ): Readonly<Record<Severity, number>> => {
   /* eslint-disable functional/no-expression-statements, functional/immutable-data, functional/no-loop-statements -- mutable accumulator for perf */
   const counts: Record<Severity, number> = { ...EMPTY_COUNTS }
-  for (const v of vulns) { counts[v.severity] += 1 }
+  for (const v of vulns) {
+    counts[v.severity] += 1
+  }
 
   return counts
 }
@@ -118,13 +135,14 @@ const buildFromJson = (
 
 const scanWithConfig = async (
   options: ScanOptions,
-  configExceptions: ReadonlyArray<ExceptionEntry>,
+  config: NazarConfig,
 ): Promise<Result<ScanResult>> => {
-  const auditResult = await runNpmAudit(options.cwd, buildNpmArgs(options.production))
+  const timeoutMs = options.timeoutMs ?? config.timeout ?? DEFAULT_TIMEOUT_MS
+  const auditResult = await runNpmAudit(options.cwd, buildNpmArgs(options.production), timeoutMs)
 
   return !auditResult.ok
     ? err(auditResult.error)
-    : buildFromJson(auditResult.data, configExceptions, options.cliIgnores)
+    : buildFromJson(auditResult.data, config.exceptions ?? [], options.cliIgnores)
 }
 
 const loadConfig = (options: ScanOptions): Result<NazarConfig> =>
@@ -135,9 +153,7 @@ const loadConfig = (options: ScanOptions): Result<NazarConfig> =>
 export const scan = async (options: ScanOptions): Promise<Result<ScanResult>> => {
   const configResult = loadConfig(options)
 
-  return !configResult.ok
-    ? err(configResult.error)
-    : scanWithConfig(options, configResult.data.exceptions ?? [])
+  return !configResult.ok ? err(configResult.error) : scanWithConfig(options, configResult.data)
 }
 
 export const passesThreshold = (result: ScanResult, level: Severity | undefined): boolean => {
