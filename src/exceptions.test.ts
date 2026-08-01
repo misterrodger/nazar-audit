@@ -13,9 +13,19 @@ describe('applyExceptions', () => {
       const exceptions: ReadonlyArray<ExceptionEntry> = [{ id: 'GHSA-aaaa-bbbb-cccc' }]
       const result = applyExceptions(vulns, exceptions, NOW)
 
-      expect(result.unhandled).toHaveLength(0)
-      expect(result.matched).toHaveLength(1)
-      expect(result.matched[0]!.matchedVulnerability).toBe('testpkg')
+      expect(result).toMatchInlineSnapshot(`
+        {
+          "expired": [],
+          "matched": [
+            {
+              "id": "GHSA-aaaa-bbbb-cccc",
+              "matchedVulnerability": "testpkg",
+            },
+          ],
+          "unhandled": [],
+          "unused": [],
+        }
+      `)
     })
 
     it('does not match partial GHSA ID prefix', () => {
@@ -25,6 +35,7 @@ describe('applyExceptions', () => {
 
       expect(result.unhandled).toHaveLength(1)
       expect(result.unused).toHaveLength(1)
+      expect(result.matched).toHaveLength(0)
     })
 
     it('does not match unrelated GHSA ID', () => {
@@ -121,6 +132,7 @@ describe('applyExceptions', () => {
 
       expect(result.unhandled).toHaveLength(0)
       expect(result.matched).toHaveLength(1)
+      expect(result.expired).toHaveLength(0)
     })
 
     it('treats exception expiring today as expired', () => {
@@ -132,6 +144,15 @@ describe('applyExceptions', () => {
 
       expect(result.expired).toHaveLength(1)
       expect(result.unhandled).toHaveLength(1)
+    })
+
+    it('does not expire exceptions without expiry field', () => {
+      const vulns = [makeVuln()] as const
+      const exceptions: ReadonlyArray<ExceptionEntry> = [{ id: 'GHSA-aaaa-bbbb-cccc' }]
+      const result = applyExceptions(vulns, exceptions, NOW)
+
+      expect(result.expired).toHaveLength(0)
+      expect(result.matched).toHaveLength(1)
     })
   })
 
@@ -178,9 +199,16 @@ describe('applyExceptions', () => {
       ]
       const result = applyExceptions(vulns, exceptions, NOW)
 
-      expect(result.unused).toHaveLength(2)
-      expect(result.unused[0]!.id).toBe('GHSA-does-not-exist')
-      expect(result.unused[1]!.module).toBe('nonexistent-pkg')
+      expect(result.unused).toMatchInlineSnapshot(`
+        [
+          {
+            "id": "GHSA-does-not-exist",
+          },
+          {
+            "module": "nonexistent-pkg",
+          },
+        ]
+      `)
     })
 
     it('does not report inactive exceptions as unused', () => {
@@ -229,10 +257,14 @@ describe('applyExceptions', () => {
     it('returns empty results for empty inputs', () => {
       const result = applyExceptions([], [], NOW)
 
-      expect(result.unhandled).toHaveLength(0)
-      expect(result.matched).toHaveLength(0)
-      expect(result.unused).toHaveLength(0)
-      expect(result.expired).toHaveLength(0)
+      expect(result).toMatchInlineSnapshot(`
+        {
+          "expired": [],
+          "matched": [],
+          "unhandled": [],
+          "unused": [],
+        }
+      `)
     })
 
     it('handles exception with neither id nor module as unused', () => {
@@ -267,12 +299,82 @@ describe('applyExceptions', () => {
       ]
       const result = applyExceptions(vulns, exceptions, NOW)
 
-      expect(result.matched[0]).toMatchObject({
-        id: 'GHSA-aaaa-bbbb-cccc',
-        notes: 'Not exploitable in our usage',
-        addedBy: 'jrodger',
-        matchedVulnerability: 'testpkg',
-      })
+      expect(result.matched[0]).toMatchInlineSnapshot(`
+        {
+          "addedBy": "jrodger",
+          "expiry": "2099-12-31",
+          "id": "GHSA-aaaa-bbbb-cccc",
+          "matchedVulnerability": "testpkg",
+          "notes": "Not exploitable in our usage",
+        }
+      `)
+    })
+
+    it('maps unhandled vulnerabilities with correct structure', () => {
+      const vulns = [makeVuln()] as const
+      const result = applyExceptions(vulns, [], NOW)
+
+      expect(result.unhandled[0]?.name).toBe('testpkg')
+      expect(result.unhandled[0]?.severity).toBe('high')
+    })
+
+    it('matches by id when vuln has multiple advisories with mixed match', () => {
+      const vulns = [
+        makeVuln({
+          advisories: [
+            {
+              ...makeVuln().advisories[0]!,
+              source: 1001,
+              url: 'https://github.com/advisories/GHSA-aaaa-bbbb-cccc',
+            },
+            {
+              ...makeVuln().advisories[0]!,
+              source: 2002,
+              url: 'https://github.com/advisories/GHSA-xxxx-yyyy-zzzz',
+            },
+          ],
+        }),
+      ] as const
+      const exceptions: ReadonlyArray<ExceptionEntry> = [{ id: 'GHSA-aaaa-bbbb-cccc' }]
+      const result = applyExceptions(vulns, exceptions, NOW)
+
+      expect(result.matched).toHaveLength(1)
+      expect(result.unhandled).toHaveLength(0)
+    })
+
+    it('does not match when exception module is undefined', () => {
+      const vulns = [makeVuln()] as const
+      const exceptions: ReadonlyArray<ExceptionEntry> = [{ id: 'GHSA-wrong', module: undefined }]
+      const result = applyExceptions(vulns, exceptions, NOW)
+
+      expect(result.unhandled).toHaveLength(1)
+      expect(result.unused).toHaveLength(1)
+    })
+
+    it('does not match when exception id is undefined', () => {
+      const vulns = [makeVuln()] as const
+      const exceptions: ReadonlyArray<ExceptionEntry> = [{ id: undefined, module: 'wrong-pkg' }]
+      const result = applyExceptions(vulns, exceptions, NOW)
+
+      expect(result.unhandled).toHaveLength(1)
+      expect(result.unused).toHaveLength(1)
+    })
+
+    it('matches by URL id when URL has no slash', () => {
+      const vulns = [
+        makeVuln({
+          advisories: [
+            {
+              ...makeVuln().advisories[0]!,
+              url: 'GHSA-no-slash',
+            },
+          ],
+        }),
+      ] as const
+      const exceptions: ReadonlyArray<ExceptionEntry> = [{ id: 'GHSA-no-slash' }]
+      const result = applyExceptions(vulns, exceptions, NOW)
+
+      expect(result.matched).toHaveLength(1)
     })
   })
 })

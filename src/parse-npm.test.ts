@@ -6,6 +6,36 @@ import { expectOk, expectErr } from './test-helpers.js'
 const fixtureDir = join(import.meta.dirname, 'fixtures')
 const readFixture = (name: string): string => readFileSync(join(fixtureDir, name), 'utf-8')
 
+const makeAuditJson = (overrides: Record<string, unknown> = {}): string =>
+  JSON.stringify({
+    auditReportVersion: 2,
+    vulnerabilities: {
+      testpkg: {
+        name: 'testpkg',
+        severity: 'high',
+        isDirect: false,
+        via: [
+          {
+            source: 1,
+            name: 'testpkg',
+            dependency: 'testpkg',
+            title: 'Test vulnerability',
+            url: 'https://github.com/advisories/GHSA-test-test-test',
+            severity: 'high',
+            cwe: ['CWE-1'],
+            cvss: { score: 7.5, vectorString: 'CVSS:3.1/AV:N' },
+            range: '<1.0.0',
+          },
+        ],
+        effects: [],
+        range: '<1.0.0',
+        nodes: ['node_modules/testpkg'],
+        fixAvailable: false,
+        ...overrides,
+      },
+    },
+  } as const)
+
 describe('parseNpmAuditJson', () => {
   describe('fixture: real npm audit output', () => {
     it('parses real npm audit JSON successfully', () => {
@@ -32,13 +62,25 @@ describe('parseNpmAuditJson', () => {
 
       const first = withAdvisories[0]!
 
-      expect(first.advisories[0]).toMatchObject({
-        source: expect.any(Number),
-        title: expect.any(String),
-        url: expect.stringContaining('github.com/advisories/GHSA-'),
-        severity: expect.any(String),
-        cwe: expect.any(Array),
-      })
+      expect(first.advisories[0]).toMatchInlineSnapshot(`
+        {
+          "cvss": {
+            "score": 0,
+            "vectorString": undefined,
+          },
+          "cwe": [
+            "CWE-400",
+            "CWE-1333",
+          ],
+          "dependency": "ajv",
+          "name": "ajv",
+          "range": "<6.14.0",
+          "severity": "moderate",
+          "source": 1113714,
+          "title": "ajv has ReDoS when using \`$data\` option",
+          "url": "https://github.com/advisories/GHSA-2g4f-4pwh-qvx6",
+        }
+      `)
     })
 
     it('parses string references in via array', () => {
@@ -51,69 +93,58 @@ describe('parseNpmAuditJson', () => {
   })
 
   describe('fixAvailable normalization', () => {
-    const makeAuditJson = (fixAvailable: unknown): string =>
-      JSON.stringify({
-        auditReportVersion: 2,
-        vulnerabilities: {
-          testpkg: {
-            name: 'testpkg',
-            severity: 'high',
-            isDirect: false,
-            via: [
-              {
-                source: 1,
-                name: 'testpkg',
-                dependency: 'testpkg',
-                title: 'Test vulnerability',
-                url: 'https://github.com/advisories/GHSA-test-test-test',
-                severity: 'high',
-                cwe: ['CWE-1'],
-                cvss: { score: 7.5, vectorString: 'CVSS:3.1/AV:N' },
-                range: '<1.0.0',
-              },
-            ],
-            effects: [],
-            range: '<1.0.0',
-            nodes: ['node_modules/testpkg'],
-            fixAvailable,
-          },
-        },
-      } as const)
-
     it('normalizes fixAvailable false to kind none', () => {
-      const data = expectOk(parseNpmAuditJson(makeAuditJson(false)))
+      const data = expectOk(parseNpmAuditJson(makeAuditJson({ fixAvailable: false })))
 
-      expect(data[0]!.fixAvailable).toStrictEqual({ kind: 'none' })
+      expect(data[0]!.fixAvailable).toMatchInlineSnapshot(`
+        {
+          "kind": "none",
+        }
+      `)
     })
 
     it('normalizes fixAvailable true to kind compatible', () => {
-      const data = expectOk(parseNpmAuditJson(makeAuditJson(true)))
+      const data = expectOk(parseNpmAuditJson(makeAuditJson({ fixAvailable: true })))
 
-      expect(data[0]!.fixAvailable).toStrictEqual({ kind: 'compatible' })
+      expect(data[0]!.fixAvailable).toMatchInlineSnapshot(`
+        {
+          "kind": "compatible",
+        }
+      `)
     })
 
     it('normalizes fixAvailable object with isSemVerMajor true to kind breaking', () => {
       const data = expectOk(
         parseNpmAuditJson(
-          makeAuditJson({ name: 'parent', version: '2.0.0', isSemVerMajor: true } as const),
+          makeAuditJson({
+            fixAvailable: { name: 'parent', version: '2.0.0', isSemVerMajor: true },
+          }),
         ),
       )
 
-      expect(data[0]!.fixAvailable).toStrictEqual({
-        kind: 'breaking',
-        name: 'parent',
-        version: '2.0.0',
-      })
+      expect(data[0]!.fixAvailable).toMatchInlineSnapshot(`
+        {
+          "kind": "breaking",
+          "name": "parent",
+          "version": "2.0.0",
+        }
+      `)
     })
 
     it('normalizes fixAvailable object with isSemVerMajor false to kind compatible', () => {
       const data = expectOk(
         parseNpmAuditJson(
-          makeAuditJson({ name: 'parent', version: '1.2.3', isSemVerMajor: false } as const),
+          makeAuditJson({
+            fixAvailable: { name: 'parent', version: '1.2.3', isSemVerMajor: false },
+          }),
         ),
       )
 
-      expect(data[0]!.fixAvailable).toStrictEqual({ kind: 'compatible' })
+      expect(data[0]!.fixAvailable).toMatchInlineSnapshot(`
+        {
+          "kind": "compatible",
+        }
+      `)
     })
   })
 
@@ -139,6 +170,27 @@ describe('parseNpmAuditJson', () => {
 
       expect(vuln.via).toStrictEqual(['otherpkg'])
       expect(vuln.advisories).toStrictEqual([])
+    })
+
+    it('filters out invalid via entries', () => {
+      const json = JSON.stringify({
+        auditReportVersion: 2,
+        vulnerabilities: {
+          testpkg: {
+            name: 'testpkg',
+            severity: 'high',
+            isDirect: false,
+            via: [42, { invalid: true }, 'valid-string'],
+            effects: [],
+            range: '*',
+            nodes: [],
+            fixAvailable: false,
+          },
+        },
+      })
+      const data = expectOk(parseNpmAuditJson(json))
+
+      expect(data[0]!.via).toStrictEqual(['valid-string'])
     })
   })
 
@@ -173,7 +225,23 @@ describe('parseNpmAuditJson', () => {
       } as const)
       const data = expectOk(parseNpmAuditJson(json))
 
-      expect(data[0]!.advisories[0]!.cvss.vectorString).toBeUndefined()
+      expect(data[0]!.advisories[0]!.cvss).toMatchInlineSnapshot(`
+        {
+          "score": 0,
+          "vectorString": undefined,
+        }
+      `)
+    })
+
+    it('preserves present vectorString', () => {
+      const data = expectOk(parseNpmAuditJson(makeAuditJson()))
+
+      expect(data[0]!.advisories[0]!.cvss).toMatchInlineSnapshot(`
+        {
+          "score": 7.5,
+          "vectorString": "CVSS:3.1/AV:N",
+        }
+      `)
     })
   })
 
@@ -181,28 +249,43 @@ describe('parseNpmAuditJson', () => {
     it('returns err for invalid JSON', () => {
       const error = expectErr(parseNpmAuditJson('not json'))
 
-      expect(error).toContain('Failed to parse JSON')
+      expect(error).toMatchInlineSnapshot(
+        `"Failed to parse JSON: Unexpected token 'o', "not json" is not valid JSON"`,
+      )
     })
 
     it('rejects missing auditReportVersion', () => {
       const json = JSON.stringify({ vulnerabilities: {} } as const)
       const error = expectErr(parseNpmAuditJson(json))
 
-      expect(error).toContain('Invalid npm audit output')
+      expect(error).toMatchInlineSnapshot(
+        `"Invalid npm audit output: Invalid key: Expected "auditReportVersion" but received undefined"`,
+      )
     })
 
     it('rejects missing vulnerabilities field', () => {
       const json = JSON.stringify({ auditReportVersion: 2 } as const)
       const error = expectErr(parseNpmAuditJson(json))
 
-      expect(error).toContain('Invalid npm audit output')
+      expect(error).toMatchInlineSnapshot(
+        `"Invalid npm audit output: Invalid key: Expected "vulnerabilities" but received undefined"`,
+      )
     })
 
     it('rejects unsupported audit report version', () => {
       const json = JSON.stringify({ auditReportVersion: 1, vulnerabilities: {} } as const)
       const error = expectErr(parseNpmAuditJson(json))
 
-      expect(error).toContain('Unsupported audit report version')
+      expect(error).toMatchInlineSnapshot(
+        `"Unsupported audit report version: 1. Only version 2 (npm v7+) is supported."`,
+      )
+    })
+
+    it('joins multiple validation errors with comma separator', () => {
+      const json = JSON.stringify({ notAuditReport: true })
+      const error = expectErr(parseNpmAuditJson(json))
+
+      expect(error).toContain(', ')
     })
 
     it('returns empty array for zero vulnerabilities', () => {
@@ -257,6 +340,64 @@ describe('parseNpmAuditJson', () => {
       const data = expectOk(parseNpmAuditJson(json))
 
       expect(data[0]!.severity).toBe('info')
+    })
+  })
+
+  describe('full parsed structure', () => {
+    it('parses a complete vulnerability with all fields', () => {
+      const data = expectOk(parseNpmAuditJson(makeAuditJson()))
+
+      expect(data[0]).toMatchInlineSnapshot(`
+        {
+          "advisories": [
+            {
+              "cvss": {
+                "score": 7.5,
+                "vectorString": "CVSS:3.1/AV:N",
+              },
+              "cwe": [
+                "CWE-1",
+              ],
+              "dependency": "testpkg",
+              "name": "testpkg",
+              "range": "<1.0.0",
+              "severity": "high",
+              "source": 1,
+              "title": "Test vulnerability",
+              "url": "https://github.com/advisories/GHSA-test-test-test",
+            },
+          ],
+          "effects": [],
+          "fixAvailable": {
+            "kind": "none",
+          },
+          "isDirect": false,
+          "name": "testpkg",
+          "nodes": [
+            "node_modules/testpkg",
+          ],
+          "range": "<1.0.0",
+          "severity": "high",
+          "via": [
+            {
+              "cvss": {
+                "score": 7.5,
+                "vectorString": "CVSS:3.1/AV:N",
+              },
+              "cwe": [
+                "CWE-1",
+              ],
+              "dependency": "testpkg",
+              "name": "testpkg",
+              "range": "<1.0.0",
+              "severity": "high",
+              "source": 1,
+              "title": "Test vulnerability",
+              "url": "https://github.com/advisories/GHSA-test-test-test",
+            },
+          ],
+        }
+      `)
     })
   })
 })
