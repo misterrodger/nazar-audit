@@ -79,12 +79,12 @@ Colored, fixed-column table with dynamic width:
 
 | Column | Description |
 |---|---|
-| ID | Advisory source ID |
+| Severity | Colored severity label |
 | Package | Package name |
 | Title | Advisory title (word-wrapped to available width) |
-| Severity | Colored severity label |
-| URL | Link to advisory |
+| Paths | Shortened dependency paths (`node_modules/a/node_modules/b` -> `a>b`) |
 | Fix | Fix availability (yes/breaking/no) |
+| URL | Link to advisory |
 
 Features:
 - `--filter-table <severity>` to filter displayed rows by severity
