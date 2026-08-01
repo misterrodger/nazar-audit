@@ -32,7 +32,7 @@ src/
 - **CLI-only MVP** -- no library exports until Phase 2 (D11)
 - **npm-only** -- no adapter abstraction until Phase 1 adds pnpm (D1)
 - **npm v7+ JSON only** -- no v6 schema support (D2)
-- **`execFile` not `exec`** -- no shell spawned, prevents command injection; 60s default timeout (D24)
+- **`execFile` not `exec`** -- no shell spawned (with `shell: true` on Windows for `.cmd` shims), prevents command injection; 60s default timeout, configurable via `--timeout` CLI flag or `timeoutSeconds` config key (D24, D32)
 - **Discriminated unions** for polymorphic data (`FixAvailability`, `ViaEntry`)
 - **Result type** for error handling -- `{ ok: true, data: T } | { ok: false, error: string }` (D12)
 - **Functional style** -- pure functions, composition, immutable data

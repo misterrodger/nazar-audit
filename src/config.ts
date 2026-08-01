@@ -18,7 +18,7 @@ const NazarConfigSchema = v.object({
   format: v.optional(v.picklist(['table', 'json'])),
   filterTable: v.optional(v.picklist([...SEVERITY_ORDER])),
   production: v.optional(v.boolean()),
-  timeout: v.optional(v.pipe(v.number(), v.minValue(1))),
+  timeoutSeconds: v.optional(v.pipe(v.number(), v.minValue(1))),
   exceptions: v.optional(v.array(ExceptionEntrySchema)),
 })
 
@@ -29,7 +29,7 @@ const toNazarConfig = (raw: RawNazarConfig): NazarConfig => ({
   format: raw.format,
   filterTable: raw.filterTable,
   production: raw.production,
-  timeout: raw.timeout,
+  timeoutSeconds: raw.timeoutSeconds,
   exceptions: raw.exceptions,
 })
 

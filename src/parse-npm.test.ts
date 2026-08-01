@@ -321,7 +321,7 @@ describe('parseNpmAuditJson', () => {
       },
     )
 
-    it('defaults unknown severity to info', () => {
+    it('defaults unknown severity to critical', () => {
       const json = JSON.stringify({
         auditReportVersion: 2,
         vulnerabilities: {
@@ -339,7 +339,7 @@ describe('parseNpmAuditJson', () => {
       } as const)
       const data = expectOk(parseNpmAuditJson(json))
 
-      expect(data[0]!.severity).toBe('info')
+      expect(data[0]!.severity).toBe('critical')
     })
   })
 

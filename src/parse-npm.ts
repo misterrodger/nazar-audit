@@ -59,7 +59,7 @@ const parseAdvisory = (raw: RawAdvisory): Advisory => ({
   dependency: raw.dependency,
   title: raw.title,
   url: raw.url,
-  severity: isSeverity(raw.severity) ? raw.severity : 'info',
+  severity: isSeverity(raw.severity) ? raw.severity : 'critical',
   cwe: raw.cwe,
   cvss: {
     score: raw.cvss.score,
@@ -93,7 +93,7 @@ const parseVulnerability = (raw: RawVulnerability): Vulnerability => {
 
   return {
     name: raw.name,
-    severity: isSeverity(raw.severity) ? raw.severity : 'info',
+    severity: isSeverity(raw.severity) ? raw.severity : 'critical',
     isDirect: raw.isDirect,
     via,
     effects: raw.effects,

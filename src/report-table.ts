@@ -100,13 +100,13 @@ const vulnToRows = (vuln: Vulnerability): ReadonlyArray<TableRow> => {
 const sortBySeverity = (vulns: ReadonlyArray<Vulnerability>): ReadonlyArray<Vulnerability> =>
   SEVERITY_DESC.flatMap((severity) => vulns.filter((v) => v.severity === severity))
 
-const filterVulnerabilities = (
-  vulns: ReadonlyArray<Vulnerability>,
+const filterRows = (
+  rows: ReadonlyArray<TableRow>,
   minSeverity: Severity | undefined,
-): ReadonlyArray<Vulnerability> =>
+): ReadonlyArray<TableRow> =>
   minSeverity === undefined
-    ? vulns
-    : vulns.filter((v) => severityIndex(v.severity) >= severityIndex(minSeverity))
+    ? rows
+    : rows.filter((r) => severityIndex(r.severity) >= severityIndex(minSeverity))
 
 const padRight = (str: string, width: number): string =>
   str + ' '.repeat(Math.max(0, width - str.length))
@@ -269,11 +269,12 @@ export const formatTable = (
   filterSeverity: Severity | undefined,
   terminalWidth?: number,
 ): string => {
-  const sorted = sortBySeverity(filterVulnerabilities(result.unhandled, filterSeverity))
-  const rows = sorted.flatMap(vulnToRows)
+  const sorted = sortBySeverity(result.unhandled)
+  const allRows = sorted.flatMap(vulnToRows)
+  const rows = filterRows(allRows, filterSeverity)
 
   const emptyMessage =
-    filterSeverity !== undefined && result.unhandled.length > 0
+    filterSeverity !== undefined && allRows.length > 0
       ? `No vulnerabilities at or above ${filterSeverity} severity.`
       : 'No vulnerabilities found.'
 
