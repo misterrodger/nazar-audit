@@ -46,13 +46,17 @@ export const makeScanResult = (overrides: Partial<ScanResult> = {}): ScanResult 
 })
 
 export const expectOk = <T>(result: Result<T>): T => {
-  expect(result.ok).toBe(true)
+  if (!result.ok) {
+    expect.unreachable(`Expected ok but got error: ${result.error}`)
+  }
 
-  return (result as { ok: true; data: T }).data
+  return result.data
 }
 
 export const expectErr = <T>(result: Result<T>): string => {
-  expect(result.ok).toBe(false)
+  if (result.ok) {
+    expect.unreachable('Expected error but got ok')
+  }
 
-  return (result as { ok: false; error: string }).error
+  return result.error
 }

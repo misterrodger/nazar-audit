@@ -52,6 +52,7 @@ export type NazarConfig = Readonly<{
   format?: 'table' | 'json' | undefined
   filterTable?: Severity | undefined
   production?: boolean | undefined
+  timeout?: number | undefined
   exceptions?: ReadonlyArray<ExceptionEntry> | undefined
 }>
 
@@ -78,6 +79,8 @@ export type Result<T> = Readonly<{ ok: true; data: T }> | Readonly<{ ok: false; 
 
 export const isSeverity = (value: string): value is Severity =>
   (SEVERITY_ORDER as ReadonlyArray<string>).includes(value)
+
+export const severityIndex = (severity: Severity): number => SEVERITY_ORDER.indexOf(severity)
 
 export const ok = <T>(data: T): Result<T> => ({ ok: true, data })
 

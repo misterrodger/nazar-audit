@@ -38,6 +38,7 @@ exceptions:
         "format": "json",
         "level": "high",
         "production": true,
+        "timeout": undefined,
       }
     `)
   })
@@ -61,6 +62,7 @@ exceptions:
         "format": undefined,
         "level": undefined,
         "production": undefined,
+        "timeout": undefined,
       }
     `)
   })

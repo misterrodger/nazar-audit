@@ -336,9 +336,7 @@ describe('formatTable', () => {
         },
       })
       const output = stripAnsi(formatTable(result, undefined))
-      const urlOccurrences = output
-        .split('\n')
-        .filter((l) => l.includes('GHSA-aaaa-bbbb-cccc'))
+      const urlOccurrences = output.split('\n').filter((l) => l.includes('GHSA-aaaa-bbbb-cccc'))
 
       expect(urlOccurrences).toHaveLength(1)
     })
@@ -389,10 +387,7 @@ describe('formatTable', () => {
 
     it('renders plural packages and vulnerabilities', () => {
       const result = makeScanResult({
-        unhandled: [
-          makeVuln({ name: 'pkg-a' }),
-          makeVuln({ name: 'pkg-b', severity: 'critical' }),
-        ],
+        unhandled: [makeVuln({ name: 'pkg-a' }), makeVuln({ name: 'pkg-b', severity: 'critical' })],
         metadata: {
           ...makeScanResult().metadata,
           total: 2,
@@ -609,7 +604,12 @@ describe('formatTable', () => {
         unhandled: [
           makeVuln({
             name: 'extremely-long-module-name-that-exceeds-max-width',
-            advisories: [{ ...makeVuln().advisories[0]!, name: 'extremely-long-module-name-that-exceeds-max-width' }],
+            advisories: [
+              {
+                ...makeVuln().advisories[0]!,
+                name: 'extremely-long-module-name-that-exceeds-max-width',
+              },
+            ],
           }),
         ],
         metadata: {

@@ -6,6 +6,7 @@ import {
   type Severity,
   type FixAvailability,
   SEVERITY_ORDER,
+  severityIndex,
 } from './types.js'
 
 type TableRow = Readonly<{
@@ -96,8 +97,6 @@ const vulnToRows = (vuln: Vulnerability): ReadonlyArray<TableRow> => {
       ]
 }
 
-const severityIndex = (severity: Severity): number => SEVERITY_ORDER.indexOf(severity)
-
 const sortBySeverity = (vulns: ReadonlyArray<Vulnerability>): ReadonlyArray<Vulnerability> =>
   SEVERITY_DESC.flatMap((severity) => vulns.filter((v) => v.severity === severity))
 
@@ -131,23 +130,28 @@ const wrapText = (text: string, maxWidth: number): ReadonlyArray<string> => {
   return text.length <= maxWidth ? [text] : [line, ...wrapText(remaining, maxWidth)]
 }
 
-const getTerminalWidth = (stdout: Readonly<{ columns?: number }> = process.stdout): number =>
-  stdout.columns ?? DEFAULT_TERMINAL_WIDTH
-
-const calculateWidths = (rows: ReadonlyArray<TableRow>): ColumnWidths => {
+const calculateWidths = (rows: ReadonlyArray<TableRow>, terminalWidth?: number): ColumnWidths => {
   const severity = Math.max(8, ...rows.map((r) => r.severity.length))
   const module_ = Math.min(MAX_MODULE_WIDTH, Math.max(7, ...rows.map((r) => r.module.length)))
   const fix = Math.max(3, ...rows.map((r) => r.fix.length))
 
+  // eslint-disable-next-line @typescript-eslint/no-unnecessary-condition -- columns is undefined in non-TTY environments
+  const width = terminalWidth ?? process.stdout.columns ?? DEFAULT_TERMINAL_WIDTH
   const fixedWidth = severity + module_ + fix + URL_ESTIMATED_WIDTH + GAP_WIDTH * FIXED_COLUMN_COUNT
-  const remaining = Math.max(0, getTerminalWidth() - fixedWidth)
+  const remaining = Math.max(0, width - fixedWidth)
 
   const naturalTitle = Math.max(MIN_TITLE_WIDTH, ...rows.map((r) => r.title.length))
-  const naturalPaths = Math.min(MAX_PATHS_WIDTH, Math.max(MIN_PATHS_WIDTH, ...rows.map((r) => r.paths.length)))
+  const naturalPaths = Math.min(
+    MAX_PATHS_WIDTH,
+    Math.max(MIN_PATHS_WIDTH, ...rows.map((r) => r.paths.length)),
+  )
 
   const totalFlexNeeded = naturalTitle + naturalPaths
   const titleShare = totalFlexNeeded > 0 ? naturalTitle / totalFlexNeeded : 0.6
-  const title = Math.max(MIN_TITLE_WIDTH, Math.min(naturalTitle, Math.floor(remaining * titleShare)))
+  const title = Math.max(
+    MIN_TITLE_WIDTH,
+    Math.min(naturalTitle, Math.floor(remaining * titleShare)),
+  )
   const paths = Math.max(MIN_PATHS_WIDTH, Math.min(naturalPaths, remaining - title))
 
   return { severity, module: module_, title, paths, fix }
@@ -226,8 +230,12 @@ const formatSummary = (result: ScanResult): string => {
       ? `, ${String(result.exceptions.matched.length)} excepted`
       : ''
 
-  const severityBreakdown = SEVERITY_ORDER.filter((s) => result.metadata.severityCounts[s] > 0)
-    .map((s) => colorSeverityCount(s, result.metadata.severityCounts[s]))
+  const unhandledCounts = SEVERITY_ORDER.reduce(
+    (acc, s) => ({ ...acc, [s]: result.unhandled.filter((v) => v.severity === s).length }),
+    {} as Record<Severity, number>,
+  )
+  const severityBreakdown = SEVERITY_ORDER.filter((s) => unhandledCounts[s] > 0)
+    .map((s) => colorSeverityCount(s, unhandledCounts[s]))
     .join(', ')
 
   const unusedWarning =
@@ -243,8 +251,12 @@ const formatSummary = (result: ScanResult): string => {
   return `${total}${unhandledSuffix}${matchedSuffix}\n  ${severityBreakdown}${unusedWarning}${expiredWarning}`
 }
 
-const formatTableOutput = (rows: ReadonlyArray<TableRow>, result: ScanResult): string => {
-  const widths = calculateWidths(rows)
+const formatTableOutput = (
+  rows: ReadonlyArray<TableRow>,
+  result: ScanResult,
+  terminalWidth?: number,
+): string => {
+  const widths = calculateWidths(rows, terminalWidth)
   const header = renderHeader(widths)
   const body = rows.map((row) => renderRow(row, widths)).join('\n')
   const summary = formatSummary(result)
@@ -252,7 +264,11 @@ const formatTableOutput = (rows: ReadonlyArray<TableRow>, result: ScanResult): s
   return `\n${header}\n${body}\n\n${summary}\n`
 }
 
-export const formatTable = (result: ScanResult, filterSeverity: Severity | undefined): string => {
+export const formatTable = (
+  result: ScanResult,
+  filterSeverity: Severity | undefined,
+  terminalWidth?: number,
+): string => {
   const sorted = sortBySeverity(filterVulnerabilities(result.unhandled, filterSeverity))
   const rows = sorted.flatMap(vulnToRows)
 
@@ -263,5 +279,5 @@ export const formatTable = (result: ScanResult, filterSeverity: Severity | undef
 
   return rows.length === 0
     ? `\n${pc.green(emptyMessage)}\n`
-    : formatTableOutput(rows, result)
+    : formatTableOutput(rows, result, terminalWidth)
 }

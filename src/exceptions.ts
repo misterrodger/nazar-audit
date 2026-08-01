@@ -20,7 +20,9 @@ const extractUrlId = (url: string): string => {
 }
 
 const matchesById = (id: string, vuln: Vulnerability): boolean =>
-  vuln.advisories.some((advisory) => extractUrlId(advisory.url) === id || String(advisory.source) === id)
+  vuln.advisories.some(
+    (advisory) => extractUrlId(advisory.url) === id || String(advisory.source) === id,
+  )
 
 const matchesVulnerability = (exception: ExceptionEntry, vuln: Vulnerability): boolean =>
   (exception.module !== undefined && exception.module === vuln.name) ||

@@ -98,6 +98,7 @@ type NazarConfig = {
   readonly format?: 'table' | 'json' | 'sarif' | 'markdown'
   readonly filterTable?: Severity
   readonly production?: boolean
+  readonly timeout?: number
   readonly exceptions?: readonly ExceptionEntry[]
   readonly includeColumns?: readonly string[]
   readonly registry?: string
