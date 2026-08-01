@@ -177,9 +177,13 @@ const colorSeverityCount = (severity: Severity, count: number): string =>
 const countUniquePackages = (vulns: ReadonlyArray<Vulnerability>): number =>
   new Set(vulns.map((v) => v.name)).size
 
+const countAdvisories = (vulns: ReadonlyArray<Vulnerability>): number =>
+  vulns.reduce((sum, v) => sum + Math.max(1, deduplicateAdvisories(v.advisories).length), 0)
+
 const formatSummary = (result: ScanResult): string => {
   const pkgCount = countUniquePackages(result.unhandled)
-  const total = `Found ${String(pkgCount)} package${pkgCount === 1 ? '' : 's'} with vulnerabilities`
+  const vulnCount = countAdvisories(result.unhandled)
+  const total = `Found ${String(pkgCount)} package${pkgCount === 1 ? '' : 's'} with ${String(vulnCount)} vulnerabilit${vulnCount === 1 ? 'y' : 'ies'}`
   const unhandledSuffix =
     result.unhandled.length > 0 ? ` (${String(result.unhandled.length)} unhandled)` : ''
   const matchedSuffix =
