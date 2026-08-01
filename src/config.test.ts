@@ -19,22 +19,27 @@ exceptions:
 `
     const config = expectOk(parseConfigYaml(yaml))
 
-    expect(config.level).toBe('high')
-    expect(config.format).toBe('json')
-    expect(config.filterTable).toBe('moderate')
-    expect(config.production).toBe(true)
-    expect(config.exceptions).toHaveLength(2)
-    expect(config.exceptions![0]).toMatchObject({
-      id: 'GHSA-xxxx-yyyy-zzzz',
-      active: true,
-      expiry: '2025-06-01',
-      notes: 'No impact',
-      addedBy: 'jrodger',
-    })
-    expect(config.exceptions![1]).toMatchObject({
-      module: 'minimist',
-      notes: 'Dev-only dependency',
-    })
+    expect(config).toMatchInlineSnapshot(`
+      {
+        "exceptions": [
+          {
+            "active": true,
+            "addedBy": "jrodger",
+            "expiry": "2025-06-01",
+            "id": "GHSA-xxxx-yyyy-zzzz",
+            "notes": "No impact",
+          },
+          {
+            "module": "minimist",
+            "notes": "Dev-only dependency",
+          },
+        ],
+        "filterTable": "moderate",
+        "format": "json",
+        "level": "high",
+        "production": true,
+      }
+    `)
   })
 
   it('parses a minimal config with only exceptions', () => {
@@ -45,8 +50,19 @@ exceptions:
 `),
     )
 
-    expect(config.level).toBeUndefined()
-    expect(config.exceptions).toHaveLength(1)
+    expect(config).toMatchInlineSnapshot(`
+      {
+        "exceptions": [
+          {
+            "id": "GHSA-test-test-test",
+          },
+        ],
+        "filterTable": undefined,
+        "format": undefined,
+        "level": undefined,
+        "production": undefined,
+      }
+    `)
   })
 
   it('returns empty config for empty YAML', () => {
@@ -70,19 +86,25 @@ exceptions:
   it('rejects invalid severity value', () => {
     const error = expectErr(parseConfigYaml('level: extreme'))
 
-    expect(error).toContain('Invalid .nazar.yml')
+    expect(error).toMatchInlineSnapshot(
+      `"Invalid .nazar.yml: Invalid type: Expected ("info" | "low" | "moderate" | "high" | "critical") but received "extreme""`,
+    )
   })
 
   it('rejects invalid format value', () => {
     const error = expectErr(parseConfigYaml('format: xml'))
 
-    expect(error).toContain('Invalid .nazar.yml')
+    expect(error).toMatchInlineSnapshot(
+      `"Invalid .nazar.yml: Invalid type: Expected ("table" | "json") but received "xml""`,
+    )
   })
 
   it('rejects non-object YAML content', () => {
     const error = expectErr(parseConfigYaml('42'))
 
-    expect(error).toContain('Invalid .nazar.yml')
+    expect(error).toMatchInlineSnapshot(
+      `"Invalid .nazar.yml: Invalid type: Expected Object but received 42"`,
+    )
   })
 
   it('rejects YAML scalar false', () => {
@@ -117,6 +139,43 @@ exceptions:
       expect(config.level).toBe(level)
     },
   )
+
+  it('joins multiple validation errors with comma separator', () => {
+    const error = expectErr(
+      parseConfigYaml(`
+level: bad
+format: bad
+`),
+    )
+
+    expect(error).toContain(', ')
+    expect(error).toMatch(/Invalid .nazar.yml:.*,.*/)
+  })
+
+  describe('filterTable validation', () => {
+    it.each(['info', 'low', 'moderate', 'high', 'critical'] as const)(
+      'accepts %s as a valid filterTable value',
+      (filter) => {
+        const config = expectOk(parseConfigYaml(`filterTable: ${filter}`))
+
+        expect(config.filterTable).toBe(filter)
+      },
+    )
+
+    it('rejects invalid filterTable value', () => {
+      const error = expectErr(parseConfigYaml('filterTable: extreme'))
+
+      expect(error).toContain('Invalid .nazar.yml')
+    })
+  })
+
+  describe('format validation', () => {
+    it.each(['table', 'json'] as const)('accepts %s as a valid format', (format) => {
+      const config = expectOk(parseConfigYaml(`format: ${format}`))
+
+      expect(config.format).toBe(format)
+    })
+  })
 })
 
 describe('loadConfigFile', () => {
