@@ -76,6 +76,9 @@ export type ScanResult = Readonly<{
 
 export type Result<T> = Readonly<{ ok: true; data: T }> | Readonly<{ ok: false; error: string }>
 
+export const isSeverity = (value: string): value is Severity =>
+  (SEVERITY_ORDER as ReadonlyArray<string>).includes(value)
+
 export const ok = <T>(data: T): Result<T> => ({ ok: true, data })
 
 export const err = <T = never>(error: string): Result<T> => ({ ok: false, error })

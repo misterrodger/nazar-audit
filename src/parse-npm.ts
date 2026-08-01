@@ -3,10 +3,9 @@ import {
   type Advisory,
   type FixAvailability,
   type Result,
-  type Severity,
   type ViaEntry,
   type Vulnerability,
-  SEVERITY_ORDER,
+  isSeverity,
   ok,
   err,
 } from './types.js'
@@ -53,9 +52,6 @@ const RawNpmAuditReportSchema = v.object({
 type RawAdvisory = v.InferOutput<typeof RawAdvisorySchema>
 type RawFixObject = v.InferOutput<typeof RawFixObjectSchema>
 type RawVulnerability = v.InferOutput<typeof RawVulnerabilitySchema>
-
-const isSeverity = (value: string): value is Severity =>
-  (SEVERITY_ORDER as ReadonlyArray<string>).includes(value)
 
 const parseAdvisory = (raw: RawAdvisory): Advisory => ({
   source: raw.source,
