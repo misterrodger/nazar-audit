@@ -1,53 +1,8 @@
-import type { ScanResult, Vulnerability } from './types.js'
 import { formatTable } from './report-table.js'
+import { makeVuln, makeScanResult } from './test-helpers.js'
 
 // eslint-disable-next-line no-control-regex
 const stripAnsi = (str: string): string => str.replace(/\x1b\[[0-9;]*m/g, '')
-
-const makeVuln = (overrides: Partial<Vulnerability> = {}): Vulnerability => ({
-  name: 'testpkg',
-  severity: 'high',
-  isDirect: false,
-  via: [],
-  effects: [],
-  range: '<1.0.0',
-  nodes: ['node_modules/testpkg'],
-  fixAvailable: { kind: 'none' },
-  advisories: [
-    {
-      source: 1001,
-      name: 'testpkg',
-      dependency: 'testpkg',
-      title: 'Test Vulnerability',
-      url: 'https://github.com/advisories/GHSA-aaaa-bbbb-cccc',
-      severity: 'high',
-      cwe: ['CWE-1'],
-      cvss: { score: 7.5, vectorString: undefined },
-      range: '<1.0.0',
-    },
-  ],
-  ...overrides,
-})
-
-const makeScanResult = (overrides: Partial<ScanResult> = {}): ScanResult => ({
-  packageManager: 'npm',
-  vulnerabilities: [],
-  metadata: {
-    total: 0,
-    severityCounts: { info: 0, low: 0, moderate: 0, high: 0, critical: 0 },
-    directCount: 0,
-    transitiveCount: 0,
-    fixableCount: 0,
-    unfixableCount: 0,
-  },
-  exceptions: {
-    matched: [],
-    unused: [],
-    expired: [],
-  },
-  unhandled: [],
-  ...overrides,
-})
 
 describe('formatTable', () => {
   it('shows no vulnerabilities message for empty results', () => {

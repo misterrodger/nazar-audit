@@ -21,11 +21,21 @@ const NazarConfigSchema = v.object({
   exceptions: v.optional(v.array(ExceptionEntrySchema)),
 })
 
+type RawNazarConfig = v.InferOutput<typeof NazarConfigSchema>
+
+const toNazarConfig = (raw: RawNazarConfig): NazarConfig => ({
+  level: raw.level,
+  format: raw.format,
+  filterTable: raw.filterTable,
+  production: raw.production,
+  exceptions: raw.exceptions,
+})
+
 const validateConfig = (raw: unknown): Result<NazarConfig> => {
   const result = v.safeParse(NazarConfigSchema, raw)
 
   return result.success
-    ? ok(result.output as NazarConfig)
+    ? ok(toNazarConfig(result.output))
     : err(`Invalid .nazar.yml: ${result.issues.map((i) => i.message).join(', ')}`)
 }
 

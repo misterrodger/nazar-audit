@@ -1,29 +1,9 @@
-import type { ScanResult } from './types.js'
 import { formatJson } from './report-json.js'
-
-const makeScanResult = (overrides: Partial<ScanResult> = {}): ScanResult => ({
-  packageManager: 'npm',
-  vulnerabilities: [],
-  metadata: {
-    total: 0,
-    severityCounts: { info: 0, low: 0, moderate: 0, high: 0, critical: 0 },
-    directCount: 0,
-    transitiveCount: 0,
-    fixableCount: 0,
-    unfixableCount: 0,
-  },
-  exceptions: {
-    matched: [],
-    unused: [],
-    expired: [],
-  },
-  unhandled: [],
-  ...overrides,
-})
+import { makeScanResult } from './test-helpers.js'
 
 type JsonOutput = Record<string, unknown>
 
-const parseOutput = (result: ScanResult): JsonOutput => JSON.parse(formatJson(result)) as JsonOutput
+const parseOutput = (json: string): JsonOutput => JSON.parse(json) as JsonOutput
 
 describe('formatJson', () => {
   it('produces valid JSON', () => {
@@ -33,19 +13,19 @@ describe('formatJson', () => {
   })
 
   it('includes schemaVersion 1', () => {
-    const parsed = parseOutput(makeScanResult())
+    const parsed = parseOutput(formatJson(makeScanResult()))
 
     expect(parsed['schemaVersion']).toBe(1)
   })
 
   it('includes scanner name', () => {
-    const parsed = parseOutput(makeScanResult())
+    const parsed = parseOutput(formatJson(makeScanResult()))
 
     expect(parsed['scanner']).toBe('nazar-audit')
   })
 
   it('includes packageManager in metadata', () => {
-    const parsed = parseOutput(makeScanResult({ packageManager: 'npm' }))
+    const parsed = parseOutput(formatJson(makeScanResult({ packageManager: 'npm' })))
     const metadata = parsed['metadata'] as Record<string, unknown>
 
     expect(metadata['packageManager']).toBe('npm')
@@ -59,7 +39,7 @@ describe('formatJson', () => {
         severityCounts: { info: 0, low: 0, moderate: 1, high: 1, critical: 1 },
       },
     })
-    const parsed = parseOutput(result)
+    const parsed = parseOutput(formatJson(result))
     const metadata = parsed['metadata'] as Record<string, unknown>
 
     expect(metadata['severityCounts']).toStrictEqual({
@@ -72,13 +52,13 @@ describe('formatJson', () => {
   })
 
   it('includes vulnerabilities array', () => {
-    const parsed = parseOutput(makeScanResult())
+    const parsed = parseOutput(formatJson(makeScanResult()))
 
     expect(parsed['vulnerabilities']).toStrictEqual([])
   })
 
   it('includes exceptions with matched, unused, and expired', () => {
-    const parsed = parseOutput(makeScanResult())
+    const parsed = parseOutput(formatJson(makeScanResult()))
 
     expect(parsed['exceptions']).toStrictEqual({
       matched: [],
@@ -88,7 +68,7 @@ describe('formatJson', () => {
   })
 
   it('includes unhandled array', () => {
-    const parsed = parseOutput(makeScanResult())
+    const parsed = parseOutput(formatJson(makeScanResult()))
 
     expect(parsed['unhandled']).toStrictEqual([])
   })

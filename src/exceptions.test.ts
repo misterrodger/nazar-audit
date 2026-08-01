@@ -1,30 +1,6 @@
-import { type ExceptionEntry, type Vulnerability } from './types.js'
+import type { ExceptionEntry } from './types.js'
 import { applyExceptions } from './exceptions.js'
-
-const makeVuln = (overrides: Partial<Vulnerability> = {}): Vulnerability => ({
-  name: 'testpkg',
-  severity: 'high',
-  isDirect: false,
-  via: [],
-  effects: [],
-  range: '<1.0.0',
-  nodes: ['node_modules/testpkg'],
-  fixAvailable: { kind: 'none' },
-  advisories: [
-    {
-      source: 1001,
-      name: 'testpkg',
-      dependency: 'testpkg',
-      title: 'Test Vulnerability',
-      url: 'https://github.com/advisories/GHSA-aaaa-bbbb-cccc',
-      severity: 'high',
-      cwe: ['CWE-1'],
-      cvss: { score: 7.5, vectorString: undefined },
-      range: '<1.0.0',
-    },
-  ],
-  ...overrides,
-})
+import { makeVuln } from './test-helpers.js'
 
 const FUTURE_DATE = '2099-12-31'
 const PAST_DATE = '2020-01-01'

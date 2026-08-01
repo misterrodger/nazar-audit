@@ -31,14 +31,18 @@ const NPM_BIN = process.platform === 'win32' ? 'npm.cmd' : 'npm'
 const buildNpmArgs = (production: boolean): ReadonlyArray<string> =>
   production ? ['audit', '--json', '--omit=dev'] : ['audit', '--json']
 
-const extractErrorDetail = (error: unknown): Readonly<{ stdout: string; message: string }> => {
-  const obj = typeof error === 'object' && !!error ? (error as Record<string, unknown>) : {}
-  const stdout = typeof obj['stdout'] === 'string' ? obj['stdout'] : ''
-  const stderr = typeof obj['stderr'] === 'string' ? obj['stderr'] : ''
-  const msg = error instanceof Error ? error.message : String(error)
+type ExecError = Error & Readonly<{ stdout: string; stderr: string }>
 
-  return { stdout, message: stderr || msg }
-}
+const isExecError = (e: unknown): e is ExecError =>
+  e instanceof Error && 'stdout' in e && 'stderr' in e
+
+const extractErrorDetail = (error: unknown): Readonly<{ stdout: string; message: string }> =>
+  isExecError(error)
+    ? { stdout: error.stdout, message: error.stderr || error.message }
+    : {
+        stdout: '',
+        message: error instanceof Error ? error.message : String(error),
+      }
 
 const runNpmAudit = (cwd: string, args: ReadonlyArray<string>): Promise<Result<string>> =>
   execFileAsync(NPM_BIN, [...args], { cwd, maxBuffer: MAX_BUFFER }).then(
@@ -52,15 +56,17 @@ const runNpmAudit = (cwd: string, args: ReadonlyArray<string>): Promise<Result<s
 
 const severityIndex = (severity: Severity): number => SEVERITY_ORDER.indexOf(severity)
 
-const EMPTY_COUNTS: Record<Severity, number> = { info: 0, low: 0, moderate: 0, high: 0, critical: 0 }
+const EMPTY_COUNTS = { info: 0, low: 0, moderate: 0, high: 0, critical: 0 } as const satisfies Record<Severity, number>
 
 const countBySeverity = (
   vulns: ReadonlyArray<Vulnerability>,
-): Readonly<Record<Severity, number>> =>
-  vulns.reduce<Record<Severity, number>>(
-    (acc, v) => ({ ...acc, [v.severity]: acc[v.severity] + 1 }),
-    { ...EMPTY_COUNTS },
-  )
+): Readonly<Record<Severity, number>> => {
+  /* eslint-disable functional/no-expression-statements, functional/immutable-data, functional/no-loop-statements -- mutable accumulator for perf */
+  const counts: Record<Severity, number> = { ...EMPTY_COUNTS }
+  for (const v of vulns) { counts[v.severity] += 1 }
+
+  return counts
+}
 
 const isFixable = (fix: FixAvailability): boolean => fix.kind !== 'none'
 

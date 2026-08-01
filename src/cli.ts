@@ -1,16 +1,16 @@
 import { defineCommand, runMain } from 'citty'
-import { type Result, type Severity, SEVERITY_ORDER, ok, err } from './types.js'
+import { type Result, type Severity, SEVERITY_ORDER, isSeverity, ok, err } from './types.js'
 import { scan, passesThreshold } from './scan.js'
 import { formatTable } from './report-table.js'
 import { formatJson } from './report-json.js'
 import { VERSION } from './index.js'
 import { getBanner } from './banner.js'
 
-const isSeverity = (value: string): value is Severity =>
-  (SEVERITY_ORDER as ReadonlyArray<string>).includes(value)
-
 const VALID_FORMATS = ['table', 'json'] as const
 type OutputFormat = (typeof VALID_FORMATS)[number]
+
+const isOutputFormat = (value: string): value is OutputFormat =>
+  (VALID_FORMATS as ReadonlyArray<string>).includes(value)
 
 const parseSeverity = (name: string, value: string | undefined): Result<Severity | undefined> =>
   value === undefined
@@ -22,8 +22,8 @@ const parseSeverity = (name: string, value: string | undefined): Result<Severity
 const parseFormat = (value: string | undefined): Result<OutputFormat> =>
   value === undefined
     ? ok('table')
-    : (VALID_FORMATS as ReadonlyArray<string>).includes(value)
-      ? ok(value as OutputFormat)
+    : isOutputFormat(value)
+      ? ok(value)
       : err(`Invalid --format: "${value}". Must be one of: ${VALID_FORMATS.join(', ')}`)
 
 const parseIgnores = (value: string | undefined): ReadonlyArray<string> =>

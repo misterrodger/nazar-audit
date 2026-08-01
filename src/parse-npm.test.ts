@@ -1,37 +1,23 @@
 import { readFileSync } from 'node:fs'
 import { join } from 'node:path'
-import { type Result, type Vulnerability } from './types.js'
 import { parseNpmAuditJson } from './parse-npm.js'
+import { expectOk, expectErr } from './test-helpers.js'
 
 const fixtureDir = join(import.meta.dirname, 'fixtures')
 const readFixture = (name: string): string => readFileSync(join(fixtureDir, name), 'utf-8')
-
-const expectOkData = (
-  result: Result<ReadonlyArray<Vulnerability>>,
-): ReadonlyArray<Vulnerability> => {
-  expect(result.ok).toBe(true)
-
-  return (result as { ok: true; data: ReadonlyArray<Vulnerability> }).data
-}
-
-const expectErrMessage = (result: Result<ReadonlyArray<Vulnerability>>): string => {
-  expect(result.ok).toBe(false)
-
-  return (result as { ok: false; error: string }).error
-}
 
 describe('parseNpmAuditJson', () => {
   describe('fixture: real npm audit output', () => {
     it('parses real npm audit JSON successfully', () => {
       const json = readFixture('npm-audit-real.json')
-      const data = expectOkData(parseNpmAuditJson(json))
+      const data = expectOk(parseNpmAuditJson(json))
 
       expect(data.length).toBeGreaterThan(0)
     })
 
     it('extracts vulnerability names from real fixture', () => {
       const json = readFixture('npm-audit-real.json')
-      const data = expectOkData(parseNpmAuditJson(json))
+      const data = expectOk(parseNpmAuditJson(json))
       const names = data.map((v) => v.name)
 
       expect(names).toContain('brace-expansion')
@@ -39,7 +25,7 @@ describe('parseNpmAuditJson', () => {
 
     it('parses advisory objects in via array', () => {
       const json = readFixture('npm-audit-real.json')
-      const data = expectOkData(parseNpmAuditJson(json))
+      const data = expectOk(parseNpmAuditJson(json))
       const withAdvisories = data.filter((v) => v.advisories.length > 0)
 
       expect(withAdvisories.length).toBeGreaterThan(0)
@@ -57,7 +43,7 @@ describe('parseNpmAuditJson', () => {
 
     it('parses string references in via array', () => {
       const json = readFixture('npm-audit-real.json')
-      const data = expectOkData(parseNpmAuditJson(json))
+      const data = expectOk(parseNpmAuditJson(json))
       const withStringVia = data.filter((v) => v.via.some((entry) => typeof entry === 'string'))
 
       expect(withStringVia.length).toBeGreaterThan(0)
@@ -95,19 +81,19 @@ describe('parseNpmAuditJson', () => {
       } as const)
 
     it('normalizes fixAvailable false to kind none', () => {
-      const data = expectOkData(parseNpmAuditJson(makeAuditJson(false)))
+      const data = expectOk(parseNpmAuditJson(makeAuditJson(false)))
 
       expect(data[0]!.fixAvailable).toStrictEqual({ kind: 'none' })
     })
 
     it('normalizes fixAvailable true to kind compatible', () => {
-      const data = expectOkData(parseNpmAuditJson(makeAuditJson(true)))
+      const data = expectOk(parseNpmAuditJson(makeAuditJson(true)))
 
       expect(data[0]!.fixAvailable).toStrictEqual({ kind: 'compatible' })
     })
 
     it('normalizes fixAvailable object with isSemVerMajor true to kind breaking', () => {
-      const data = expectOkData(
+      const data = expectOk(
         parseNpmAuditJson(
           makeAuditJson({ name: 'parent', version: '2.0.0', isSemVerMajor: true } as const),
         ),
@@ -121,7 +107,7 @@ describe('parseNpmAuditJson', () => {
     })
 
     it('normalizes fixAvailable object with isSemVerMajor false to kind compatible', () => {
-      const data = expectOkData(
+      const data = expectOk(
         parseNpmAuditJson(
           makeAuditJson({ name: 'parent', version: '1.2.3', isSemVerMajor: false } as const),
         ),
@@ -148,7 +134,7 @@ describe('parseNpmAuditJson', () => {
           },
         },
       } as const)
-      const data = expectOkData(parseNpmAuditJson(json))
+      const data = expectOk(parseNpmAuditJson(json))
       const vuln = data[0]!
 
       expect(vuln.via).toStrictEqual(['otherpkg'])
@@ -185,7 +171,7 @@ describe('parseNpmAuditJson', () => {
           },
         },
       } as const)
-      const data = expectOkData(parseNpmAuditJson(json))
+      const data = expectOk(parseNpmAuditJson(json))
 
       expect(data[0]!.advisories[0]!.cvss.vectorString).toBeUndefined()
     })
@@ -193,35 +179,35 @@ describe('parseNpmAuditJson', () => {
 
   describe('error cases', () => {
     it('returns err for invalid JSON', () => {
-      const error = expectErrMessage(parseNpmAuditJson('not json'))
+      const error = expectErr(parseNpmAuditJson('not json'))
 
       expect(error).toContain('Failed to parse JSON')
     })
 
     it('rejects missing auditReportVersion', () => {
       const json = JSON.stringify({ vulnerabilities: {} } as const)
-      const error = expectErrMessage(parseNpmAuditJson(json))
+      const error = expectErr(parseNpmAuditJson(json))
 
       expect(error).toContain('Invalid npm audit output')
     })
 
     it('rejects missing vulnerabilities field', () => {
       const json = JSON.stringify({ auditReportVersion: 2 } as const)
-      const error = expectErrMessage(parseNpmAuditJson(json))
+      const error = expectErr(parseNpmAuditJson(json))
 
       expect(error).toContain('Invalid npm audit output')
     })
 
     it('rejects unsupported audit report version', () => {
       const json = JSON.stringify({ auditReportVersion: 1, vulnerabilities: {} } as const)
-      const error = expectErrMessage(parseNpmAuditJson(json))
+      const error = expectErr(parseNpmAuditJson(json))
 
       expect(error).toContain('Unsupported audit report version')
     })
 
     it('returns empty array for zero vulnerabilities', () => {
       const json = JSON.stringify({ auditReportVersion: 2, vulnerabilities: {} } as const)
-      const data = expectOkData(parseNpmAuditJson(json))
+      const data = expectOk(parseNpmAuditJson(json))
 
       expect(data).toStrictEqual([])
     })
@@ -246,7 +232,7 @@ describe('parseNpmAuditJson', () => {
             },
           },
         } as const)
-        const data = expectOkData(parseNpmAuditJson(json))
+        const data = expectOk(parseNpmAuditJson(json))
 
         expect(data[0]!.severity).toBe(severity)
       },
@@ -268,7 +254,7 @@ describe('parseNpmAuditJson', () => {
           },
         },
       } as const)
-      const data = expectOkData(parseNpmAuditJson(json))
+      const data = expectOk(parseNpmAuditJson(json))
 
       expect(data[0]!.severity).toBe('info')
     })
