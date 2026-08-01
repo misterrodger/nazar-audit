@@ -83,6 +83,7 @@
   },
   "dependencies": {
     "citty": "0.2.2",
+    "nanospinner": "1.2.2",
     "picocolors": "1.1.1",
     "valibot": "1.4.2",
     "yaml": "2.9.0"

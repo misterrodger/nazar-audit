@@ -5,6 +5,7 @@ import { formatTable } from './report-table.js'
 import { formatJson } from './report-json.js'
 import { VERSION } from './index.js'
 import { getBanner } from './banner.js'
+import { createSpinner } from 'nanospinner'
 
 const VALID_FORMATS = ['table', 'json'] as const
 type OutputFormat = (typeof VALID_FORMATS)[number]
@@ -123,6 +124,9 @@ const main = defineCommand({
 
       const cliIgnores = parseIgnores(args.ignore)
 
+      const spinner =
+        formatResult.data === 'table' ? createSpinner('Scanning...').start() : undefined
+
       const result = await scan({
         cwd: process.cwd(),
         production: args.production,
@@ -132,10 +136,13 @@ const main = defineCommand({
       })
 
       if (!result.ok) {
+        if (spinner) spinner.error({ text: 'Scan failed' })
         console.error(`Error: ${result.error}`)
         process.exitCode = EXIT_ERROR
         return
       }
+
+      if (spinner) spinner.success({ text: 'Scan complete' })
 
       const output =
         formatResult.data === 'json'

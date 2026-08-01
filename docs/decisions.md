@@ -169,3 +169,9 @@ Decisions made during the MVP planning session, preserved for future reference.
 **Decision:** `expectOk` and `expectErr` in `test-helpers.ts` use `expect.unreachable()` with the discriminated union's own narrowing rather than `as` casts.
 
 **Rationale:** Casts bypass the type system. After the `if (!result.ok)` guard, TypeScript narrows `result` to `{ ok: true; data: T }` naturally, so no cast is needed. `expect.unreachable()` provides a clear test failure message if the guard fails.
+
+## D29. Scan spinner
+
+**Decision:** `nanospinner` for the scanning progress indicator. Only shown for `--format table`.
+
+**Rationale:** `nanospinner` (20 kB) depends on `picocolors`, which the project already uses -- zero new transitive dependencies. `yocto-spinner` would have added `yoctocolors` as a new dep tree. `ora` is 280 kB with many dependencies. The spinner is suppressed for JSON output to avoid corrupting machine-parseable output.
