@@ -192,22 +192,24 @@ describe('parseNpmAuditJson', () => {
   })
 
   describe('error cases', () => {
-    it('rejects invalid JSON', () => {
-      expect(() => parseNpmAuditJson('not json')).toThrow()
+    it('returns err for invalid JSON', () => {
+      const error = expectErrMessage(parseNpmAuditJson('not json'))
+
+      expect(error).toContain('Failed to parse JSON')
     })
 
     it('rejects missing auditReportVersion', () => {
       const json = JSON.stringify({ vulnerabilities: {} } as const)
       const error = expectErrMessage(parseNpmAuditJson(json))
 
-      expect(error).toContain('missing auditReportVersion')
+      expect(error).toContain('Invalid npm audit output')
     })
 
     it('rejects missing vulnerabilities field', () => {
       const json = JSON.stringify({ auditReportVersion: 2 } as const)
       const error = expectErrMessage(parseNpmAuditJson(json))
 
-      expect(error).toContain('missing auditReportVersion or vulnerabilities')
+      expect(error).toContain('Invalid npm audit output')
     })
 
     it('rejects unsupported audit report version', () => {

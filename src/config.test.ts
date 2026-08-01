@@ -97,6 +97,18 @@ exceptions:
     expect(error).toContain('Invalid .nazar.yml')
   })
 
+  it('rejects YAML scalar false', () => {
+    const error = expectErrMessage(parseConfigYaml('false'))
+
+    expect(error).toContain('Invalid .nazar.yml')
+  })
+
+  it('rejects YAML scalar 0', () => {
+    const error = expectErrMessage(parseConfigYaml('0'))
+
+    expect(error).toContain('Invalid .nazar.yml')
+  })
+
   it('rejects exception with wrong type for active', () => {
     const error = expectErrMessage(
       parseConfigYaml(`

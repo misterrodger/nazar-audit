@@ -13,8 +13,14 @@ const isExpired = (entry: ExceptionEntry, now: Date = new Date()): boolean =>
 const isEffective = (entry: ExceptionEntry, now: Date = new Date()): boolean =>
   entry.active !== false && !isExpired(entry, now)
 
+const extractUrlId = (url: string): string => {
+  const lastSlash = url.lastIndexOf('/')
+
+  return lastSlash >= 0 ? url.slice(lastSlash + 1) : url
+}
+
 const matchesById = (id: string, vuln: Vulnerability): boolean =>
-  vuln.advisories.some((advisory) => advisory.url.includes(id) || String(advisory.source) === id)
+  vuln.advisories.some((advisory) => extractUrlId(advisory.url) === id || String(advisory.source) === id)
 
 const matchesVulnerability = (exception: ExceptionEntry, vuln: Vulnerability): boolean =>
   (exception.module !== undefined && exception.module === vuln.name) ||

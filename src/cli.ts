@@ -1,6 +1,6 @@
 import { defineCommand, runMain } from 'citty'
-import { type Severity, SEVERITY_ORDER } from './types.js'
-import { scan, meetsThreshold } from './scan.js'
+import { type Result, type Severity, SEVERITY_ORDER, ok, err } from './types.js'
+import { scan, passesThreshold } from './scan.js'
 import { formatTable } from './report-table.js'
 import { formatJson } from './report-json.js'
 import { VERSION } from './index.js'
@@ -9,8 +9,22 @@ import { getBanner } from './banner.js'
 const isSeverity = (value: string): value is Severity =>
   (SEVERITY_ORDER as ReadonlyArray<string>).includes(value)
 
-const parseSeverity = (value: string | undefined): Severity | undefined =>
-  value !== undefined && isSeverity(value) ? value : undefined
+const VALID_FORMATS = ['table', 'json'] as const
+type OutputFormat = (typeof VALID_FORMATS)[number]
+
+const parseSeverity = (name: string, value: string | undefined): Result<Severity | undefined> =>
+  value === undefined
+    ? ok(undefined)
+    : isSeverity(value)
+      ? ok(value)
+      : err(`Invalid ${name}: "${value}". Must be one of: ${SEVERITY_ORDER.join(', ')}`)
+
+const parseFormat = (value: string | undefined): Result<OutputFormat> =>
+  value === undefined
+    ? ok('table')
+    : (VALID_FORMATS as ReadonlyArray<string>).includes(value)
+      ? ok(value as OutputFormat)
+      : err(`Invalid --format: "${value}". Must be one of: ${VALID_FORMATS.join(', ')}`)
 
 const parseIgnores = (value: string | undefined): ReadonlyArray<string> =>
   value !== undefined
@@ -66,9 +80,27 @@ const main = defineCommand({
       console.log(getBanner())
       console.log()
 
-      const level = parseSeverity(args.level)
-      const filterTable = parseSeverity(args['filter-table'])
-      const format = args.format === 'json' ? 'json' : 'table'
+      const levelResult = parseSeverity('--level', args.level)
+      if (!levelResult.ok) {
+        console.error(`Error: ${levelResult.error}`)
+        process.exitCode = EXIT_ERROR
+        return
+      }
+
+      const filterTableResult = parseSeverity('--filter-table', args['filter-table'])
+      if (!filterTableResult.ok) {
+        console.error(`Error: ${filterTableResult.error}`)
+        process.exitCode = EXIT_ERROR
+        return
+      }
+
+      const formatResult = parseFormat(args.format)
+      if (!formatResult.ok) {
+        console.error(`Error: ${formatResult.error}`)
+        process.exitCode = EXIT_ERROR
+        return
+      }
+
       const cliIgnores = parseIgnores(args.ignore)
 
       const result = await scan({
@@ -85,11 +117,13 @@ const main = defineCommand({
       }
 
       const output =
-        format === 'json' ? formatJson(result.data) : formatTable(result.data, filterTable)
+        formatResult.data === 'json'
+          ? formatJson(result.data)
+          : formatTable(result.data, filterTableResult.data)
 
       console.log(output)
 
-      if (!meetsThreshold(result.data, level)) {
+      if (!passesThreshold(result.data, levelResult.data)) {
         process.exitCode = EXIT_VULNERABILITIES
       }
     } catch (error: unknown) {

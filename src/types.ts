@@ -22,11 +22,13 @@ export type Advisory = Readonly<{
   range: string
 }>
 
+export type ViaEntry = Advisory | string
+
 export type Vulnerability = Readonly<{
   name: string
   severity: Severity
   isDirect: boolean
-  via: ReadonlyArray<Advisory | string>
+  via: ReadonlyArray<ViaEntry>
   effects: ReadonlyArray<string>
   range: string
   nodes: ReadonlyArray<string>

@@ -1,4 +1,4 @@
-import { type ScanResult } from './types.js'
+import type { ScanResult } from './types.js'
 import { formatJson } from './report-json.js'
 
 const makeScanResult = (overrides: Partial<ScanResult> = {}): ScanResult => ({

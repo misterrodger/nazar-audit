@@ -3,6 +3,7 @@ import { execFile as execFileCb } from 'node:child_process'
 import {
   type ExceptionEntry,
   type FixAvailability,
+  type NazarConfig,
   type Result,
   type ScanResult,
   type Severity,
@@ -12,7 +13,7 @@ import {
   err,
 } from './types.js'
 import { parseNpmAuditJson } from './parse-npm.js'
-import { loadConfigFile } from './config.js'
+import { loadConfigFile, loadConfigPath } from './config.js'
 import { applyExceptions } from './exceptions.js'
 
 const execFileAsync = promisify(execFileCb)
@@ -25,35 +26,41 @@ type ScanOptions = Readonly<{
   configPath: string | undefined
 }>
 
+const NPM_BIN = process.platform === 'win32' ? 'npm.cmd' : 'npm'
+
 const buildNpmArgs = (production: boolean): ReadonlyArray<string> =>
   production ? ['audit', '--json', '--omit=dev'] : ['audit', '--json']
 
-const extractStdout = (error: unknown): string =>
-  (error as Readonly<{ stdout?: string }>).stdout ?? ''
+const extractErrorDetail = (error: unknown): Readonly<{ stdout: string; message: string }> => {
+  const obj = typeof error === 'object' && !!error ? (error as Record<string, unknown>) : {}
+  const stdout = typeof obj['stdout'] === 'string' ? obj['stdout'] : ''
+  const stderr = typeof obj['stderr'] === 'string' ? obj['stderr'] : ''
+  const msg = error instanceof Error ? error.message : String(error)
+
+  return { stdout, message: stderr || msg }
+}
 
 const runNpmAudit = (cwd: string, args: ReadonlyArray<string>): Promise<Result<string>> =>
-  execFileAsync('npm', [...args], { cwd, maxBuffer: MAX_BUFFER }).then(
+  execFileAsync(NPM_BIN, [...args], { cwd, maxBuffer: MAX_BUFFER }).then(
     ({ stdout }) => (stdout ? ok(stdout) : err('npm audit produced no output')),
     (error: unknown) => {
-      const stdout = extractStdout(error)
-      return stdout ? ok(stdout) : err('npm audit produced no output')
+      const { stdout, message } = extractErrorDetail(error)
+
+      return stdout ? ok(stdout) : err(`npm audit failed: ${message}`)
     },
   )
 
-const isSeverity = (value: string): value is Severity =>
-  (SEVERITY_ORDER as ReadonlyArray<string>).includes(value)
-
 const severityIndex = (severity: Severity): number => SEVERITY_ORDER.indexOf(severity)
+
+const EMPTY_COUNTS: Record<Severity, number> = { info: 0, low: 0, moderate: 0, high: 0, critical: 0 }
 
 const countBySeverity = (
   vulns: ReadonlyArray<Vulnerability>,
-): Readonly<Record<Severity, number>> => ({
-  info: vulns.filter((v) => v.severity === 'info').length,
-  low: vulns.filter((v) => v.severity === 'low').length,
-  moderate: vulns.filter((v) => v.severity === 'moderate').length,
-  high: vulns.filter((v) => v.severity === 'high').length,
-  critical: vulns.filter((v) => v.severity === 'critical').length,
-})
+): Readonly<Record<Severity, number>> =>
+  vulns.reduce<Record<Severity, number>>(
+    (acc, v) => ({ ...acc, [v.severity]: acc[v.severity] + 1 }),
+    { ...EMPTY_COUNTS },
+  )
 
 const isFixable = (fix: FixAvailability): boolean => fix.kind !== 'none'
 
@@ -114,18 +121,21 @@ const scanWithConfig = async (
     : buildFromJson(auditResult.data, configExceptions, options.cliIgnores)
 }
 
+const loadConfig = (options: ScanOptions): Result<NazarConfig> =>
+  options.configPath !== undefined
+    ? loadConfigPath(options.configPath)
+    : loadConfigFile(options.cwd)
+
 export const scan = async (options: ScanOptions): Promise<Result<ScanResult>> => {
-  const configResult = loadConfigFile(options.configPath ?? options.cwd)
+  const configResult = loadConfig(options)
 
   return !configResult.ok
     ? err(configResult.error)
     : scanWithConfig(options, configResult.data.exceptions ?? [])
 }
 
-export const meetsThreshold = (result: ScanResult, level: Severity | undefined): boolean => {
+export const passesThreshold = (result: ScanResult, level: Severity | undefined): boolean => {
   const minIndex = severityIndex(level ?? 'low')
 
-  return result.unhandled.every(
-    (v) => !isSeverity(v.severity) || severityIndex(v.severity) < minIndex,
-  )
+  return result.unhandled.every((v) => severityIndex(v.severity) < minIndex)
 }
