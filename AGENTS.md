@@ -42,7 +42,7 @@ src/
 
 ## Runtime Dependencies
 
-Four total (D5): `citty` (CLI), `yaml` (config parsing), `picocolors` (terminal colors), `valibot` (config + npm JSON validation).
+Five total (D5, D29): `citty` (CLI), `yaml` (config parsing), `picocolors` (terminal colors), `valibot` (config + npm JSON validation), `nanospinner` (scan progress spinner).
 
 ## TypeScript
 
