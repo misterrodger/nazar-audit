@@ -78,6 +78,8 @@ Compare current scan against a previous scan result:
 
 ## P1.7 Fail-On Mode
 
+**Status:** Implemented.
+
 Snyk-style exit code control:
 - `--fail-on all` -- fail on any vulnerability (default)
 - `--fail-on upgradable` -- fail only when a semver-compatible fix exists

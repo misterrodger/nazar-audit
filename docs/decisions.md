@@ -199,3 +199,15 @@ Decisions made during the MVP planning session, preserved for future reference.
 **Decision:** The spinner variable is hoisted above the `try` block so it can be stopped in the `catch` handler.
 
 **Rationale:** If an unexpected error occurs after the spinner is created but before normal error handling, the spinner would continue spinning indefinitely. Hoisting and stopping in `catch` ensures clean terminal output in all error paths.
+
+## D34. Config vs CLI precedence resolution
+
+**Decision:** `cli.ts` is the sole owner of config-file loading. It resolves `.nazar.yml` exactly once per run via `resolveConfig` (exported from `config.ts`), then both (a) merges `level`, `format`, `filterTable`, `production`, and `failOn` as `parsedCliValue ?? config.value ?? builtInDefault` via a pure `resolveOptions` function, and (b) passes the same loaded `NazarConfig` object straight into `scan()`. `scan()`'s `ScanOptions` takes `config: NazarConfig` directly instead of a `configPath` string -- `scan.ts` no longer loads config itself. `production`'s citty `default: false` was removed so an omitted `--production`/`-p` resolves to `undefined` (verified against citty's `parseArgs` behavior) instead of a hard `false` that always shadowed the config value.
+
+**Rationale:** `config.ts` validated and typed `level`, `format`, `filterTable`, and `production` from day one, but `cli.ts` never read the loaded `NazarConfig` at all -- only `timeoutSeconds` and `exceptions` (read inside `scan.ts`) actually worked from the config file, silently contradicting the documented "CLI flags take precedence over config file values" behavior. Rather than loading config twice (once in `cli.ts` for precedence, once again inside `scan()`), config loading was hoisted entirely into `cli.ts` and the resolved value passed down -- a genuine simplification, not a workaround: `scan.ts` sheds an entire responsibility and there is exactly one `readFileSync` of `.nazar.yml` per run.
+
+## D35. Fail-on mode semantics
+
+**Decision:** `--fail-on <all|upgradable|patchable>` (config key `failOn`, default `all`) filters which vulnerabilities can trigger a non-zero exit code, combined with `--level`'s severity threshold via AND evaluated **per vulnerability** inside `passesThreshold`'s existing `.every()` -- not as two independently-reduced booleans ANDed together. `upgradable` matches `fixAvailable.kind === 'compatible'`; `patchable` matches `fixAvailable.kind !== 'none'` (compatible or breaking); `all` matches everything (unchanged default behavior).
+
+**Rationale:** Reducing severity-threshold and fail-on-class as two separate set-level booleans is incorrect: a scan with one low-severity/upgradable vuln and one critical-severity/unfixable vuln would incorrectly fail under `--fail-on upgradable`, even though no single vulnerability is both at/above the severity threshold and upgradable. Only a per-vulnerability combined predicate produces the intended "block on vulnerabilities that are both severe enough and fixable in the requested way" semantics.

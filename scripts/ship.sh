@@ -32,6 +32,9 @@ npm run typecheck
 echo "Build"
 npm run build
 
+echo "Auditing own dependencies with nazar-audit..."
+npm run audit:self
+
 echo "Running unit tests..."
 npm run test:coverage
 

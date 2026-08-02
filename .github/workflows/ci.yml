@@ -68,6 +68,10 @@ jobs:
       - name: Build
         run: npm run build
 
+      - name: Self-audit with nazar-audit
+        if: matrix.node-version == '22.x'
+        run: npm run audit:self
+
       - name: Unit tests
         run: npm run test:coverage
 

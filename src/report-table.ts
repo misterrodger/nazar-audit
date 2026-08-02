@@ -7,7 +7,7 @@ import {
   type FixAvailability,
   SEVERITY_ORDER,
   severityIndex,
-} from './types.js'
+} from './types/index.js'
 
 type TableRow = Readonly<{
   severity: Severity

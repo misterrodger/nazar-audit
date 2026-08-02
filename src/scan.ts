@@ -2,6 +2,7 @@ import { promisify } from 'node:util'
 import { execFile as execFileCb } from 'node:child_process'
 import {
   type ExceptionEntry,
+  type FailOn,
   type FixAvailability,
   type NazarConfig,
   type Result,
@@ -11,20 +12,18 @@ import {
   severityIndex,
   ok,
   err,
-} from './types.js'
+} from './types/index.js'
 import { parseNpmAuditJson } from './parse-npm.js'
-import { loadConfigFile, loadConfigPath } from './config.js'
 import { applyExceptions } from './exceptions.js'
+import { MAX_BUFFER, DEFAULT_TIMEOUT_MS } from './constants.js'
 
 const execFileAsync = promisify(execFileCb)
-const MAX_BUFFER = 50 * 1024 * 1024
-const DEFAULT_TIMEOUT_MS = 60_000
 
 type ScanOptions = Readonly<{
   cwd: string
   production: boolean
   cliIgnores: ReadonlyArray<string>
-  configPath: string | undefined
+  config: NazarConfig
   timeoutMs?: number | undefined
 }>
 
@@ -88,6 +87,13 @@ const countBySeverity = (
 
 const isFixable = (fix: FixAvailability): boolean => fix.kind !== 'none'
 
+const matchesFailOn = (fix: FixAvailability, failOn: FailOn): boolean =>
+  failOn === 'upgradable'
+    ? fix.kind === 'compatible'
+    : failOn === 'patchable'
+      ? fix.kind !== 'none'
+      : true
+
 const cliIgnoresToExceptions = (ignores: ReadonlyArray<string>): ReadonlyArray<ExceptionEntry> =>
   ignores.map((id) => ({ id }))
 
@@ -134,33 +140,25 @@ const buildFromJson = (
       )
 }
 
-const scanWithConfig = async (
-  options: ScanOptions,
-  config: NazarConfig,
-): Promise<Result<ScanResult>> => {
+export const scan = async (options: ScanOptions): Promise<Result<ScanResult>> => {
   const configTimeoutMs =
-    config.timeoutSeconds !== undefined ? config.timeoutSeconds * 1000 : undefined
+    options.config.timeoutSeconds !== undefined ? options.config.timeoutSeconds * 1000 : undefined
   const timeoutMs = options.timeoutMs ?? configTimeoutMs ?? DEFAULT_TIMEOUT_MS
   const auditResult = await runNpmAudit(options.cwd, buildNpmArgs(options.production), timeoutMs)
 
   return !auditResult.ok
     ? err(auditResult.error)
-    : buildFromJson(auditResult.data, config.exceptions ?? [], options.cliIgnores)
+    : buildFromJson(auditResult.data, options.config.exceptions ?? [], options.cliIgnores)
 }
 
-const loadConfig = (options: ScanOptions): Result<NazarConfig> =>
-  options.configPath !== undefined
-    ? loadConfigPath(options.configPath)
-    : loadConfigFile(options.cwd)
-
-export const scan = async (options: ScanOptions): Promise<Result<ScanResult>> => {
-  const configResult = loadConfig(options)
-
-  return !configResult.ok ? err(configResult.error) : scanWithConfig(options, configResult.data)
-}
-
-export const passesThreshold = (result: ScanResult, level: Severity | undefined): boolean => {
+export const passesThreshold = (
+  result: ScanResult,
+  level: Severity | undefined,
+  failOn: FailOn = 'all',
+): boolean => {
   const minIndex = severityIndex(level ?? 'low')
 
-  return result.unhandled.every((v) => severityIndex(v.severity) < minIndex)
+  return result.unhandled.every(
+    (v) => severityIndex(v.severity) < minIndex || !matchesFailOn(v.fixAvailable, failOn),
+  )
 }

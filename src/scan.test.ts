@@ -1,7 +1,13 @@
-import { readFileSync } from 'node:fs'
-import { join } from 'node:path'
 import { vi } from 'vitest'
-import { makeVuln, makeScanResult, expectOk, expectErr } from './test-helpers.js'
+import type { FixAvailability } from './types/index.js'
+import {
+  makeVuln,
+  makeScanResult,
+  expectOk,
+  expectErr,
+  readFixture,
+  makeRawAuditJson,
+} from './test-helpers.js'
 
 const mockState = { stdout: '', shouldError: false, stderrText: '' }
 const mockCalls: ReadonlyArray<ReadonlyArray<unknown>>[] = []
@@ -28,9 +34,6 @@ vi.mock('node:child_process', () => {
   return { execFile: execFileMock }
 })
 
-const fixtureDir = join(import.meta.dirname, 'fixtures')
-const readFixture = (name: string): string => readFileSync(join(fixtureDir, name), 'utf-8')
-
 const setMockAudit = (stdout: string, shouldError = false, stderrText = ''): void => {
   mockState.stdout = stdout
   mockState.shouldError = shouldError
@@ -49,7 +52,7 @@ describe('scan', () => {
     const { scan } = await import('./scan.js')
 
     const result = expectOk(
-      await scan({ cwd: '/tmp', production: false, cliIgnores: [], configPath: undefined }),
+      await scan({ cwd: '/tmp', production: false, cliIgnores: [], config: {} }),
     )
 
     expect(result).toMatchSnapshot()
@@ -61,7 +64,7 @@ describe('scan', () => {
 
     setMockAudit(fixture)
     const withoutIgnores = expectOk(
-      await scan({ cwd: '/tmp', production: false, cliIgnores: [], configPath: undefined }),
+      await scan({ cwd: '/tmp', production: false, cliIgnores: [], config: {} }),
     )
 
     setMockAudit(fixture)
@@ -70,7 +73,7 @@ describe('scan', () => {
         cwd: '/tmp',
         production: false,
         cliIgnores: ['GHSA-2g4f-4pwh-qvx6'],
-        configPath: undefined,
+        config: {},
       }),
     )
 
@@ -83,7 +86,7 @@ describe('scan', () => {
     const { scan } = await import('./scan.js')
 
     const error = expectErr(
-      await scan({ cwd: '/tmp', production: false, cliIgnores: [], configPath: undefined }),
+      await scan({ cwd: '/tmp', production: false, cliIgnores: [], config: {} }),
     )
 
     expect(error).toBe('npm audit produced no output')
@@ -94,7 +97,7 @@ describe('scan', () => {
     const { scan } = await import('./scan.js')
 
     const error = expectErr(
-      await scan({ cwd: '/tmp', production: false, cliIgnores: [], configPath: undefined }),
+      await scan({ cwd: '/tmp', production: false, cliIgnores: [], config: {} }),
     )
 
     expect(error).toContain('Failed to parse JSON')
@@ -105,7 +108,7 @@ describe('scan', () => {
     const { scan } = await import('./scan.js')
 
     const result = expectOk(
-      await scan({ cwd: '/tmp', production: false, cliIgnores: [], configPath: undefined }),
+      await scan({ cwd: '/tmp', production: false, cliIgnores: [], config: {} }),
     )
 
     expect(result.vulnerabilities.length).toBeGreaterThan(0)
@@ -116,7 +119,7 @@ describe('scan', () => {
     const { scan } = await import('./scan.js')
 
     const error = expectErr(
-      await scan({ cwd: '/tmp', production: false, cliIgnores: [], configPath: undefined }),
+      await scan({ cwd: '/tmp', production: false, cliIgnores: [], config: {} }),
     )
 
     expect(error).toBe('npm audit failed: Registry error: ENOTFOUND')
@@ -127,25 +130,10 @@ describe('scan', () => {
     const { scan } = await import('./scan.js')
 
     const error = expectErr(
-      await scan({ cwd: '/tmp', production: false, cliIgnores: [], configPath: undefined }),
+      await scan({ cwd: '/tmp', production: false, cliIgnores: [], config: {} }),
     )
 
     expect(error).toBe('npm audit failed: npm audit found vulnerabilities')
-  })
-
-  it('returns err when config path does not exist', async () => {
-    const { scan } = await import('./scan.js')
-
-    const error = expectErr(
-      await scan({
-        cwd: '/tmp',
-        production: false,
-        cliIgnores: [],
-        configPath: '/nonexistent/path/.nazar.yml',
-      }),
-    )
-
-    expect(error).toContain('Config file not found')
   })
 
   it('populates severity counts correctly', async () => {
@@ -153,7 +141,7 @@ describe('scan', () => {
     const { scan } = await import('./scan.js')
 
     const result = expectOk(
-      await scan({ cwd: '/tmp', production: false, cliIgnores: [], configPath: undefined }),
+      await scan({ cwd: '/tmp', production: false, cliIgnores: [], config: {} }),
     )
 
     expect(result.metadata.severityCounts).toMatchInlineSnapshot(`
@@ -176,7 +164,7 @@ describe('scan', () => {
     const { scan } = await import('./scan.js')
 
     const result = expectOk(
-      await scan({ cwd: '/tmp', production: false, cliIgnores: [], configPath: undefined }),
+      await scan({ cwd: '/tmp', production: false, cliIgnores: [], config: {} }),
     )
 
     expect(result.metadata.directCount + result.metadata.transitiveCount).toBe(
@@ -185,36 +173,31 @@ describe('scan', () => {
   })
 
   it('counts fixable and unfixable vulnerabilities with mixed fixture', async () => {
-    const mixedFixture = JSON.stringify({
-      auditReportVersion: 2,
-      vulnerabilities: {
-        fixable: {
-          name: 'fixable-pkg',
-          severity: 'high',
-          isDirect: false,
-          via: [],
-          effects: [],
-          range: '<1.0.0',
-          nodes: ['node_modules/fixable-pkg'],
-          fixAvailable: true,
-        },
-        unfixable: {
-          name: 'unfixable-pkg',
-          severity: 'moderate',
-          isDirect: true,
-          via: [],
-          effects: [],
-          range: '*',
-          nodes: ['node_modules/unfixable-pkg'],
-          fixAvailable: false,
-        },
+    const mixedFixture = makeRawAuditJson({
+      fixable: {
+        name: 'fixable-pkg',
+        severity: 'high',
+        isDirect: false,
+        via: [],
+        range: '<1.0.0',
+        nodes: ['node_modules/fixable-pkg'],
+        fixAvailable: true,
+      },
+      unfixable: {
+        name: 'unfixable-pkg',
+        severity: 'moderate',
+        isDirect: true,
+        via: [],
+        range: '*',
+        nodes: ['node_modules/unfixable-pkg'],
+        fixAvailable: false,
       },
     })
     setMockAudit(mixedFixture)
     const { scan } = await import('./scan.js')
 
     const result = expectOk(
-      await scan({ cwd: '/tmp', production: false, cliIgnores: [], configPath: undefined }),
+      await scan({ cwd: '/tmp', production: false, cliIgnores: [], config: {} }),
     )
 
     expect(result.metadata.fixableCount).toBe(1)
@@ -228,7 +211,7 @@ describe('scan', () => {
     setMockAudit(readFixture('npm-audit-real.json'))
     const { scan } = await import('./scan.js')
 
-    expectOk(await scan({ cwd: '/tmp', production: true, cliIgnores: [], configPath: undefined }))
+    expectOk(await scan({ cwd: '/tmp', production: true, cliIgnores: [], config: {} }))
 
     const [lastCall] = mockCalls.slice(-1)
     const [callArgs] = lastCall ?? []
@@ -240,7 +223,7 @@ describe('scan', () => {
     setMockAudit(readFixture('npm-audit-real.json'))
     const { scan } = await import('./scan.js')
 
-    expectOk(await scan({ cwd: '/tmp', production: false, cliIgnores: [], configPath: undefined }))
+    expectOk(await scan({ cwd: '/tmp', production: false, cliIgnores: [], config: {} }))
 
     const [lastCall] = mockCalls.slice(-1)
     const [callArgs] = lastCall ?? []
@@ -323,4 +306,57 @@ describe('passesThreshold', () => {
       expect(passesThreshold(result, level)).toBe(expected)
     },
   )
+})
+
+const FIX_NONE = { kind: 'none' } as const satisfies FixAvailability
+const FIX_COMPATIBLE = { kind: 'compatible' } as const satisfies FixAvailability
+const FIX_BREAKING = {
+  kind: 'breaking',
+  name: 'left-pad',
+  version: '2.0.0',
+} as const satisfies FixAvailability
+
+describe('passesThreshold with failOn', () => {
+  it.each([
+    { failOn: 'all', fixAvailable: FIX_NONE, expected: false },
+    { failOn: 'all', fixAvailable: FIX_COMPATIBLE, expected: false },
+    { failOn: 'all', fixAvailable: FIX_BREAKING, expected: false },
+    { failOn: 'upgradable', fixAvailable: FIX_NONE, expected: true },
+    { failOn: 'upgradable', fixAvailable: FIX_COMPATIBLE, expected: false },
+    { failOn: 'upgradable', fixAvailable: FIX_BREAKING, expected: true },
+    { failOn: 'patchable', fixAvailable: FIX_NONE, expected: true },
+    { failOn: 'patchable', fixAvailable: FIX_COMPATIBLE, expected: false },
+    { failOn: 'patchable', fixAvailable: FIX_BREAKING, expected: false },
+  ] as const)(
+    'failOn=$failOn fixAvailable.kind=$fixAvailable.kind => passes=$expected',
+    async ({ failOn, fixAvailable, expected }) => {
+      const { passesThreshold } = await import('./scan.js')
+      const result = makeScanResult({
+        unhandled: [makeVuln({ severity: 'high', fixAvailable })],
+      })
+
+      expect(passesThreshold(result, 'high', failOn)).toBe(expected)
+    },
+  )
+
+  it('does not conflate a vuln that fails severity with a different vuln that fails fail-on class', async () => {
+    const { passesThreshold } = await import('./scan.js')
+    const result = makeScanResult({
+      unhandled: [
+        makeVuln({ severity: 'low', fixAvailable: { kind: 'compatible' } }),
+        makeVuln({ severity: 'critical', fixAvailable: { kind: 'none' } }),
+      ],
+    })
+
+    expect(passesThreshold(result, 'high', 'upgradable')).toBe(true)
+  })
+
+  it('fails when one vulnerability meets both severity and fail-on class', async () => {
+    const { passesThreshold } = await import('./scan.js')
+    const result = makeScanResult({
+      unhandled: [makeVuln({ severity: 'critical', fixAvailable: { kind: 'compatible' } })],
+    })
+
+    expect(passesThreshold(result, 'high', 'upgradable')).toBe(false)
+  })
 })

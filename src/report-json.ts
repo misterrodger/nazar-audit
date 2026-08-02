@@ -1,10 +1,11 @@
-import type { ScanResult } from './types.js'
+import type { ScanResult } from './types/index.js'
+import { SCHEMA_VERSION, APP_NAME } from './constants.js'
 
 export const formatJson = (result: ScanResult): string =>
   JSON.stringify(
     {
-      schemaVersion: 1,
-      scanner: 'nazar-audit',
+      schemaVersion: SCHEMA_VERSION,
+      scanner: APP_NAME,
       metadata: {
         packageManager: result.packageManager,
         ...result.metadata,

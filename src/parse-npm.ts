@@ -8,7 +8,8 @@ import {
   isSeverity,
   ok,
   err,
-} from './types.js'
+} from './types/index.js'
+import { AUDIT_REPORT_VERSION } from './constants.js'
 
 const RawCvssSchema = v.object({
   score: v.number(),
@@ -51,7 +52,8 @@ const RawNpmAuditReportSchema = v.object({
 
 type RawAdvisory = v.InferOutput<typeof RawAdvisorySchema>
 type RawFixObject = v.InferOutput<typeof RawFixObjectSchema>
-type RawVulnerability = v.InferOutput<typeof RawVulnerabilitySchema>
+export type RawVulnerability = v.InferOutput<typeof RawVulnerabilitySchema>
+export type RawNpmAuditReport = v.InferOutput<typeof RawNpmAuditReportSchema>
 
 const parseAdvisory = (raw: RawAdvisory): Advisory => ({
   source: raw.source,
@@ -118,9 +120,9 @@ const parseReport = (data: unknown): Result<ReadonlyArray<Vulnerability>> => {
 
   return !reportResult.success
     ? err(`Invalid npm audit output: ${reportResult.issues.map((i) => i.message).join(', ')}`)
-    : reportResult.output.auditReportVersion !== 2
+    : reportResult.output.auditReportVersion !== AUDIT_REPORT_VERSION
       ? err(
-          `Unsupported audit report version: ${String(reportResult.output.auditReportVersion)}. Only version 2 (npm v7+) is supported.`,
+          `Unsupported audit report version: ${String(reportResult.output.auditReportVersion)}. Only version ${String(AUDIT_REPORT_VERSION)} (npm v7+) is supported.`,
         )
       : ok(Object.values(reportResult.output.vulnerabilities).map(parseVulnerability))
 }

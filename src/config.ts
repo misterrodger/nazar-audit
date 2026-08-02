@@ -2,7 +2,15 @@ import * as v from 'valibot'
 import { parse as parseYaml } from 'yaml'
 import { readFileSync, existsSync } from 'node:fs'
 import { join } from 'node:path'
-import { type NazarConfig, type Result, SEVERITY_ORDER, ok, err } from './types.js'
+import {
+  type NazarConfig,
+  type Result,
+  SEVERITY_ORDER,
+  FAIL_ON_VALUES,
+  VALID_FORMATS,
+  ok,
+  err,
+} from './types/index.js'
 
 const ExceptionEntrySchema = v.object({
   id: v.optional(v.string()),
@@ -15,7 +23,8 @@ const ExceptionEntrySchema = v.object({
 
 const NazarConfigSchema = v.object({
   level: v.optional(v.picklist([...SEVERITY_ORDER])),
-  format: v.optional(v.picklist(['table', 'json'])),
+  failOn: v.optional(v.picklist([...FAIL_ON_VALUES])),
+  format: v.optional(v.picklist([...VALID_FORMATS])),
   filterTable: v.optional(v.picklist([...SEVERITY_ORDER])),
   production: v.optional(v.boolean()),
   timeoutSeconds: v.optional(v.pipe(v.number(), v.minValue(1))),
@@ -26,6 +35,7 @@ type RawNazarConfig = v.InferOutput<typeof NazarConfigSchema>
 
 const toNazarConfig = (raw: RawNazarConfig): NazarConfig => ({
   level: raw.level,
+  failOn: raw.failOn,
   format: raw.format,
   filterTable: raw.filterTable,
   production: raw.production,
@@ -58,3 +68,6 @@ export const loadConfigPath = (filePath: string): Result<NazarConfig> =>
   !existsSync(filePath)
     ? err(`Config file not found: ${filePath}`)
     : parseConfigYaml(readFileSync(filePath, 'utf-8'))
+
+export const resolveConfig = (cwd: string, configPath: string | undefined): Result<NazarConfig> =>
+  configPath !== undefined ? loadConfigPath(configPath) : loadConfigFile(cwd)

@@ -1,5 +1,5 @@
 import { formatTable } from './report-table.js'
-import { makeVuln, makeScanResult } from './test-helpers.js'
+import { makeVuln, makeScanResult, makeAdvisory, makeMetadata } from './test-helpers.js'
 
 // eslint-disable-next-line no-control-regex
 const stripAnsi = (str: string): string => str.replace(/\x1b\[[0-9;]*m/g, '')
@@ -18,11 +18,10 @@ describe('formatTable', () => {
   it('renders a single high-severity vulnerability', () => {
     const result = makeScanResult({
       unhandled: [makeVuln()],
-      metadata: {
-        ...makeScanResult().metadata,
+      metadata: makeMetadata({
         total: 1,
         severityCounts: { info: 0, low: 0, moderate: 0, high: 1, critical: 0 },
-      },
+      }),
     })
     const output = stripAnsi(formatTable(result, undefined))
 
@@ -46,12 +45,11 @@ describe('formatTable', () => {
           severity: 'low',
           nodes: ['node_modules/low-pkg'],
           advisories: [
-            {
-              ...makeVuln().advisories[0]!,
+            makeAdvisory({
               severity: 'low',
               title: 'Low vuln',
               url: 'https://github.com/advisories/GHSA-low0-low0-low0',
-            },
+            }),
           ],
         }),
         makeVuln({
@@ -59,20 +57,18 @@ describe('formatTable', () => {
           severity: 'critical',
           nodes: ['node_modules/crit-pkg'],
           advisories: [
-            {
-              ...makeVuln().advisories[0]!,
+            makeAdvisory({
               severity: 'critical',
               title: 'Critical vuln',
               url: 'https://github.com/advisories/GHSA-crit-crit-crit',
-            },
+            }),
           ],
         }),
       ],
-      metadata: {
-        ...makeScanResult().metadata,
+      metadata: makeMetadata({
         total: 2,
         severityCounts: { info: 0, low: 1, moderate: 0, high: 0, critical: 1 },
-      },
+      }),
     })
     const output = stripAnsi(formatTable(result, undefined))
 
@@ -93,11 +89,10 @@ describe('formatTable', () => {
     it('shows Yes for compatible fix', () => {
       const result = makeScanResult({
         unhandled: [makeVuln({ fixAvailable: { kind: 'compatible' } })],
-        metadata: {
-          ...makeScanResult().metadata,
+        metadata: makeMetadata({
           total: 1,
           severityCounts: { info: 0, low: 0, moderate: 0, high: 1, critical: 0 },
-        },
+        }),
       })
       const output = stripAnsi(formatTable(result, undefined))
 
@@ -110,11 +105,10 @@ describe('formatTable', () => {
         unhandled: [
           makeVuln({ fixAvailable: { kind: 'breaking', name: 'parent', version: '2.0.0' } }),
         ],
-        metadata: {
-          ...makeScanResult().metadata,
+        metadata: makeMetadata({
           total: 1,
           severityCounts: { info: 0, low: 0, moderate: 0, high: 1, critical: 0 },
-        },
+        }),
       })
       const output = stripAnsi(formatTable(result, undefined))
 
@@ -124,11 +118,10 @@ describe('formatTable', () => {
     it('shows No when no fix available', () => {
       const result = makeScanResult({
         unhandled: [makeVuln({ fixAvailable: { kind: 'none' } })],
-        metadata: {
-          ...makeScanResult().metadata,
+        metadata: makeMetadata({
           total: 1,
           severityCounts: { info: 0, low: 0, moderate: 0, high: 1, critical: 0 },
-        },
+        }),
       })
       const output = stripAnsi(formatTable(result, undefined))
       const lines = output.split('\n')
@@ -146,20 +139,19 @@ describe('formatTable', () => {
             name: 'high-pkg',
             severity: 'high',
             nodes: ['node_modules/high-pkg'],
-            advisories: [{ ...makeVuln().advisories[0]!, title: 'High vuln' }],
+            advisories: [makeAdvisory({ title: 'High vuln' })],
           }),
           makeVuln({
             name: 'low-pkg',
             severity: 'low',
             nodes: ['node_modules/low-pkg'],
-            advisories: [{ ...makeVuln().advisories[0]!, severity: 'low', title: 'Low vuln' }],
+            advisories: [makeAdvisory({ severity: 'low', title: 'Low vuln' })],
           }),
         ],
-        metadata: {
-          ...makeScanResult().metadata,
+        metadata: makeMetadata({
           total: 2,
           severityCounts: { info: 0, low: 1, moderate: 0, high: 1, critical: 0 },
-        },
+        }),
       })
       const output = stripAnsi(formatTable(result, 'high'))
 
@@ -170,11 +162,10 @@ describe('formatTable', () => {
     it('shows filter-aware message when filter excludes all', () => {
       const result = makeScanResult({
         unhandled: [makeVuln({ severity: 'low' })],
-        metadata: {
-          ...makeScanResult().metadata,
+        metadata: makeMetadata({
           total: 1,
           severityCounts: { info: 0, low: 1, moderate: 0, high: 0, critical: 0 },
-        },
+        }),
       })
       const output = stripAnsi(formatTable(result, 'critical'))
 
@@ -197,14 +188,13 @@ describe('formatTable', () => {
         unhandled: [
           makeVuln({
             severity: 'info',
-            advisories: [{ ...makeVuln().advisories[0]!, severity: 'info' }],
+            advisories: [makeAdvisory({ severity: 'info' })],
           }),
         ],
-        metadata: {
-          ...makeScanResult().metadata,
+        metadata: makeMetadata({
           total: 1,
           severityCounts: { info: 1, low: 0, moderate: 0, high: 0, critical: 0 },
-        },
+        }),
       })
       const output = stripAnsi(formatTable(result, 'high'))
 
@@ -216,11 +206,10 @@ describe('formatTable', () => {
     it('shows transitive label and via path for string-only via entries', () => {
       const result = makeScanResult({
         unhandled: [makeVuln({ advisories: [], via: ['upstream-pkg'], nodes: [] })],
-        metadata: {
-          ...makeScanResult().metadata,
+        metadata: makeMetadata({
           total: 1,
           severityCounts: { info: 0, low: 0, moderate: 0, high: 1, critical: 0 },
-        },
+        }),
       })
       const output = stripAnsi(formatTable(result, undefined))
 
@@ -232,11 +221,10 @@ describe('formatTable', () => {
     it('renders empty url for meta-vulnerabilities', () => {
       const result = makeScanResult({
         unhandled: [makeVuln({ advisories: [], via: ['dep-a', 'dep-b'], nodes: [] })],
-        metadata: {
-          ...makeScanResult().metadata,
+        metadata: makeMetadata({
           total: 1,
           severityCounts: { info: 0, low: 0, moderate: 0, high: 1, critical: 0 },
-        },
+        }),
       })
       const output = stripAnsi(formatTable(result, undefined))
 
@@ -246,11 +234,10 @@ describe('formatTable', () => {
     it('shows empty paths when no nodes and no string via entries', () => {
       const result = makeScanResult({
         unhandled: [makeVuln({ advisories: [], via: [], nodes: [] })],
-        metadata: {
-          ...makeScanResult().metadata,
+        metadata: makeMetadata({
           total: 1,
           severityCounts: { info: 0, low: 0, moderate: 0, high: 1, critical: 0 },
-        },
+        }),
       })
       const output = stripAnsi(formatTable(result, undefined))
       const dataLine = output.split('\n').find((l) => l.includes('(transitive)'))
@@ -261,14 +248,13 @@ describe('formatTable', () => {
     })
 
     it('filters via to only string entries for paths', () => {
-      const advisory = makeVuln().advisories[0]!
+      const advisory = makeAdvisory()
       const result = makeScanResult({
         unhandled: [makeVuln({ advisories: [], via: [advisory, 'string-dep'], nodes: [] })],
-        metadata: {
-          ...makeScanResult().metadata,
+        metadata: makeMetadata({
           total: 1,
           severityCounts: { info: 0, low: 0, moderate: 0, high: 1, critical: 0 },
-        },
+        }),
       })
       const output = stripAnsi(formatTable(result, undefined))
 
@@ -285,11 +271,10 @@ describe('formatTable', () => {
             nodes: ['node_modules/express/node_modules/body-parser'],
           }),
         ],
-        metadata: {
-          ...makeScanResult().metadata,
+        metadata: makeMetadata({
           total: 1,
           severityCounts: { info: 0, low: 0, moderate: 0, high: 1, critical: 0 },
-        },
+        }),
       })
       const output = stripAnsi(formatTable(result, undefined))
 
@@ -299,11 +284,10 @@ describe('formatTable', () => {
     it('shows direct dependency path', () => {
       const result = makeScanResult({
         unhandled: [makeVuln({ nodes: ['node_modules/axios'] })],
-        metadata: {
-          ...makeScanResult().metadata,
+        metadata: makeMetadata({
           total: 1,
           severityCounts: { info: 0, low: 0, moderate: 0, high: 1, critical: 0 },
-        },
+        }),
       })
       const output = stripAnsi(formatTable(result, undefined))
 
@@ -317,11 +301,10 @@ describe('formatTable', () => {
             nodes: ['node_modules/foo', 'node_modules/bar/node_modules/foo'],
           }),
         ],
-        metadata: {
-          ...makeScanResult().metadata,
+        metadata: makeMetadata({
           total: 1,
           severityCounts: { info: 0, low: 0, moderate: 0, high: 1, critical: 0 },
-        },
+        }),
       })
       const output = stripAnsi(formatTable(result, undefined))
 
@@ -331,14 +314,13 @@ describe('formatTable', () => {
 
   describe('deduplication', () => {
     it('deduplicates advisories with the same URL', () => {
-      const advisory = makeVuln().advisories[0]!
+      const advisory = makeAdvisory()
       const result = makeScanResult({
         unhandled: [makeVuln({ advisories: [advisory, { ...advisory, source: 9999 }] })],
-        metadata: {
-          ...makeScanResult().metadata,
+        metadata: makeMetadata({
           total: 1,
           severityCounts: { info: 0, low: 0, moderate: 0, high: 1, critical: 0 },
-        },
+        }),
       })
       const output = stripAnsi(formatTable(result, undefined))
       const urlOccurrences = output.split('\n').filter((l) => l.includes('GHSA-aaaa-bbbb-cccc'))
@@ -347,7 +329,7 @@ describe('formatTable', () => {
     })
 
     it('keeps advisories with different URLs', () => {
-      const advisory = makeVuln().advisories[0]!
+      const advisory = makeAdvisory()
       const result = makeScanResult({
         unhandled: [
           makeVuln({
@@ -362,11 +344,10 @@ describe('formatTable', () => {
             ],
           }),
         ],
-        metadata: {
-          ...makeScanResult().metadata,
+        metadata: makeMetadata({
           total: 1,
           severityCounts: { info: 0, low: 0, moderate: 0, high: 2, critical: 0 },
-        },
+        }),
       })
       const output = stripAnsi(formatTable(result, undefined))
 
@@ -379,11 +360,10 @@ describe('formatTable', () => {
     it('renders summary for single package with single vulnerability', () => {
       const result = makeScanResult({
         unhandled: [makeVuln()],
-        metadata: {
-          ...makeScanResult().metadata,
+        metadata: makeMetadata({
           total: 1,
           severityCounts: { info: 0, low: 0, moderate: 0, high: 1, critical: 0 },
-        },
+        }),
       })
       const output = stripAnsi(formatTable(result, undefined))
 
@@ -393,11 +373,10 @@ describe('formatTable', () => {
     it('renders plural packages and vulnerabilities', () => {
       const result = makeScanResult({
         unhandled: [makeVuln({ name: 'pkg-a' }), makeVuln({ name: 'pkg-b', severity: 'critical' })],
-        metadata: {
-          ...makeScanResult().metadata,
+        metadata: makeMetadata({
           total: 2,
           severityCounts: { info: 0, low: 0, moderate: 0, high: 1, critical: 1 },
-        },
+        }),
       })
       const output = stripAnsi(formatTable(result, undefined))
 
@@ -405,7 +384,7 @@ describe('formatTable', () => {
     })
 
     it('counts advisories correctly for multi-advisory packages', () => {
-      const advisory = makeVuln().advisories[0]!
+      const advisory = makeAdvisory()
       const result = makeScanResult({
         unhandled: [
           makeVuln({
@@ -420,11 +399,10 @@ describe('formatTable', () => {
             ],
           }),
         ],
-        metadata: {
-          ...makeScanResult().metadata,
+        metadata: makeMetadata({
           total: 1,
           severityCounts: { info: 0, low: 0, moderate: 0, high: 1, critical: 0 },
-        },
+        }),
       })
       const output = stripAnsi(formatTable(result, undefined))
 
@@ -434,11 +412,10 @@ describe('formatTable', () => {
     it('includes unhandled count', () => {
       const result = makeScanResult({
         unhandled: [makeVuln()],
-        metadata: {
-          ...makeScanResult().metadata,
+        metadata: makeMetadata({
           total: 1,
           severityCounts: { info: 0, low: 0, moderate: 0, high: 1, critical: 0 },
-        },
+        }),
       })
       const output = stripAnsi(formatTable(result, undefined))
 
@@ -448,11 +425,10 @@ describe('formatTable', () => {
     it('includes excepted count when exceptions matched', () => {
       const result = makeScanResult({
         unhandled: [makeVuln()],
-        metadata: {
-          ...makeScanResult().metadata,
+        metadata: makeMetadata({
           total: 1,
           severityCounts: { info: 0, low: 0, moderate: 0, high: 1, critical: 0 },
-        },
+        }),
         exceptions: {
           matched: [{ id: 'GHSA-xxxx', matchedVulnerability: 'other' }],
           unused: [],
@@ -467,11 +443,10 @@ describe('formatTable', () => {
     it('omits excepted suffix when no exceptions matched', () => {
       const result = makeScanResult({
         unhandled: [makeVuln()],
-        metadata: {
-          ...makeScanResult().metadata,
+        metadata: makeMetadata({
           total: 1,
           severityCounts: { info: 0, low: 0, moderate: 0, high: 1, critical: 0 },
-        },
+        }),
       })
       const output = stripAnsi(formatTable(result, undefined))
 
@@ -484,11 +459,10 @@ describe('formatTable', () => {
           makeVuln({ name: 'a', severity: 'high' }),
           makeVuln({ name: 'b', severity: 'moderate' }),
         ],
-        metadata: {
-          ...makeScanResult().metadata,
+        metadata: makeMetadata({
           total: 2,
           severityCounts: { info: 0, low: 0, moderate: 1, high: 1, critical: 0 },
-        },
+        }),
       })
       const output = stripAnsi(formatTable(result, undefined))
 
@@ -498,11 +472,10 @@ describe('formatTable', () => {
     it('shows unused exception warning', () => {
       const result = makeScanResult({
         unhandled: [makeVuln()],
-        metadata: {
-          ...makeScanResult().metadata,
+        metadata: makeMetadata({
           total: 1,
           severityCounts: { info: 0, low: 0, moderate: 0, high: 1, critical: 0 },
-        },
+        }),
         exceptions: { matched: [], unused: [{ id: 'GHSA-orphan' }], expired: [] },
       })
       const output = stripAnsi(formatTable(result, undefined))
@@ -513,11 +486,10 @@ describe('formatTable', () => {
     it('omits unused warning when none unused', () => {
       const result = makeScanResult({
         unhandled: [makeVuln()],
-        metadata: {
-          ...makeScanResult().metadata,
+        metadata: makeMetadata({
           total: 1,
           severityCounts: { info: 0, low: 0, moderate: 0, high: 1, critical: 0 },
-        },
+        }),
       })
       const output = stripAnsi(formatTable(result, undefined))
 
@@ -527,11 +499,10 @@ describe('formatTable', () => {
     it('shows expired exception warning', () => {
       const result = makeScanResult({
         unhandled: [makeVuln()],
-        metadata: {
-          ...makeScanResult().metadata,
+        metadata: makeMetadata({
           total: 1,
           severityCounts: { info: 0, low: 0, moderate: 0, high: 1, critical: 0 },
-        },
+        }),
         exceptions: {
           matched: [],
           unused: [],
@@ -546,11 +517,10 @@ describe('formatTable', () => {
     it('omits expired warning when none expired', () => {
       const result = makeScanResult({
         unhandled: [makeVuln()],
-        metadata: {
-          ...makeScanResult().metadata,
+        metadata: makeMetadata({
           total: 1,
           severityCounts: { info: 0, low: 0, moderate: 0, high: 1, critical: 0 },
-        },
+        }),
       })
       const output = stripAnsi(formatTable(result, undefined))
 
@@ -561,11 +531,10 @@ describe('formatTable', () => {
       const result = makeScanResult({
         unhandled: [],
         vulnerabilities: [makeVuln()],
-        metadata: {
-          ...makeScanResult().metadata,
+        metadata: makeMetadata({
           total: 1,
           severityCounts: { info: 0, low: 0, moderate: 0, high: 1, critical: 0 },
-        },
+        }),
       })
       const output = stripAnsi(formatTable(result, undefined))
 
@@ -580,14 +549,13 @@ describe('formatTable', () => {
       const result = makeScanResult({
         unhandled: [
           makeVuln({
-            advisories: [{ ...makeVuln().advisories[0]!, title: longTitle }],
+            advisories: [makeAdvisory({ title: longTitle })],
           }),
         ],
-        metadata: {
-          ...makeScanResult().metadata,
+        metadata: makeMetadata({
           total: 1,
           severityCounts: { info: 0, low: 0, moderate: 0, high: 1, critical: 0 },
-        },
+        }),
       })
       const output = stripAnsi(formatTable(result, undefined))
 
@@ -610,18 +578,16 @@ describe('formatTable', () => {
           makeVuln({
             name: 'extremely-long-module-name-that-exceeds-max-width',
             advisories: [
-              {
-                ...makeVuln().advisories[0]!,
+              makeAdvisory({
                 name: 'extremely-long-module-name-that-exceeds-max-width',
-              },
+              }),
             ],
           }),
         ],
-        metadata: {
-          ...makeScanResult().metadata,
+        metadata: makeMetadata({
           total: 1,
           severityCounts: { info: 0, low: 0, moderate: 0, high: 1, critical: 0 },
-        },
+        }),
       })
       const output = stripAnsi(formatTable(result, undefined))
 
@@ -637,11 +603,10 @@ describe('formatTable', () => {
           unhandled: [
             makeVuln({
               severity,
-              advisories: [{ ...makeVuln().advisories[0]!, severity }],
+              advisories: [makeAdvisory({ severity })],
             }),
           ],
-          metadata: {
-            ...makeScanResult().metadata,
+          metadata: makeMetadata({
             total: 1,
             severityCounts: {
               info: severity === 'info' ? 1 : 0,
@@ -650,7 +615,7 @@ describe('formatTable', () => {
               high: severity === 'high' ? 1 : 0,
               critical: severity === 'critical' ? 1 : 0,
             },
-          },
+          }),
         })
         const output = stripAnsi(formatTable(result, undefined))
 

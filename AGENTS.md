@@ -22,8 +22,8 @@ src/
   report-table.ts     -- fixed-column table with picocolors, dynamic column widths
   report-json.ts      -- normalized JSON output (schema version 1)
   banner.ts           -- nazar eye art and version text for CLI branding (table format only)
-  types.ts            -- all types, Result helpers, severityIndex, isSeverity
-  index.ts            -- VERSION constant
+  types/index.ts      -- all types, Result helpers, severityIndex, isSeverity
+  constants.ts        -- app name, version, exit codes, scan/audit tuning constants
   test-helpers.ts     -- shared test factories (makeVuln, makeScanResult) and Result extractors
 ```
 
@@ -88,7 +88,7 @@ Five total (D5, D29): `citty` (CLI), `yaml` (config parsing), `picocolors` (term
 
 ### Adding a new exception match type
 
-1. Add the match field to `ExceptionEntry` in `src/types.ts`
+1. Add the match field to `ExceptionEntry` in `src/types/index.ts`
 2. Add matching logic to `src/exceptions.ts`
 3. Add tests covering the new match type
 

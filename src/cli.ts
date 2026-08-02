@@ -1,53 +1,16 @@
 import { defineCommand, runMain } from 'citty'
-import { type Result, type Severity, SEVERITY_ORDER, isSeverity, ok, err } from './types.js'
+import { resolveOptions } from './cli-options.js'
 import { scan, passesThreshold } from './scan.js'
+import { resolveConfig } from './config.js'
 import { formatTable } from './report-table.js'
 import { formatJson } from './report-json.js'
-import { VERSION } from './index.js'
+import { APP_NAME, VERSION, EXIT_VULNERABILITIES, EXIT_ERROR } from './constants.js'
 import { getBanner } from './banner.js'
 import { createSpinner } from 'nanospinner'
 
-const VALID_FORMATS = ['table', 'json'] as const
-type OutputFormat = (typeof VALID_FORMATS)[number]
-
-const isOutputFormat = (value: string): value is OutputFormat =>
-  (VALID_FORMATS as ReadonlyArray<string>).includes(value)
-
-const parseSeverity = (name: string, value: string | undefined): Result<Severity | undefined> =>
-  value === undefined
-    ? ok(undefined)
-    : isSeverity(value)
-      ? ok(value)
-      : err(`Invalid ${name}: "${value}". Must be one of: ${SEVERITY_ORDER.join(', ')}`)
-
-const parseFormat = (value: string | undefined): Result<OutputFormat> =>
-  value === undefined
-    ? ok('table')
-    : isOutputFormat(value)
-      ? ok(value)
-      : err(`Invalid --format: "${value}". Must be one of: ${VALID_FORMATS.join(', ')}`)
-
-const parseIgnores = (value: string | undefined): ReadonlyArray<string> =>
-  value !== undefined
-    ? value
-        .split(',')
-        .map((s) => s.trim())
-        .filter(Boolean)
-    : []
-
-const parseTimeout = (value: string | undefined): Result<number | undefined> =>
-  value === undefined
-    ? ok(undefined)
-    : Number.isFinite(Number(value)) && Number(value) > 0
-      ? ok(Number(value) * 1000)
-      : err(`Invalid --timeout: "${value}". Must be a positive number (seconds)`)
-
-const EXIT_VULNERABILITIES = 1
-const EXIT_ERROR = 2
-
 const main = defineCommand({
   meta: {
-    name: 'nazar-audit',
+    name: APP_NAME,
     version: VERSION,
     description: 'A modern, security-conscious package vulnerability scanner',
   },
@@ -74,8 +37,12 @@ const main = defineCommand({
     production: {
       type: 'boolean',
       alias: 'p',
-      description: 'Skip devDependencies (passes --omit=dev to npm)',
-      default: false,
+      description: 'Skip devDependencies (passes --omit=dev to npm; default: false)',
+    },
+    'fail-on': {
+      type: 'string',
+      description:
+        'Which vulnerabilities count toward exit code: all (default), upgradable, patchable',
     },
     timeout: {
       type: 'string',
@@ -90,49 +57,45 @@ const main = defineCommand({
   run: async ({ args }) => {
     let spinner: ReturnType<typeof createSpinner> | undefined
     try {
-      const levelResult = parseSeverity('--level', args.level)
-      if (!levelResult.ok) {
-        console.error(`Error: ${levelResult.error}`)
+      const configResult = resolveConfig(process.cwd(), args.config)
+      if (!configResult.ok) {
+        console.error(`Error: ${configResult.error}`)
         process.exitCode = EXIT_ERROR
         return
       }
 
-      const filterTableResult = parseSeverity('--filter-table', args['filter-table'])
-      if (!filterTableResult.ok) {
-        console.error(`Error: ${filterTableResult.error}`)
+      const optionsResult = resolveOptions(
+        {
+          level: args.level,
+          format: args.format,
+          filterTable: args['filter-table'],
+          production: args.production,
+          failOn: args['fail-on'],
+          timeout: args.timeout,
+          ignore: args.ignore,
+        },
+        configResult.data,
+      )
+      if (!optionsResult.ok) {
+        console.error(`Error: ${optionsResult.error}`)
         process.exitCode = EXIT_ERROR
         return
       }
+      const { data: options } = optionsResult
 
-      const formatResult = parseFormat(args.format)
-      if (!formatResult.ok) {
-        console.error(`Error: ${formatResult.error}`)
-        process.exitCode = EXIT_ERROR
-        return
-      }
-
-      if (formatResult.data === 'table') {
+      if (options.format === 'table') {
         console.log(getBanner())
         console.log()
       }
 
-      const timeoutResult = parseTimeout(args.timeout)
-      if (!timeoutResult.ok) {
-        console.error(`Error: ${timeoutResult.error}`)
-        process.exitCode = EXIT_ERROR
-        return
-      }
-
-      const cliIgnores = parseIgnores(args.ignore)
-
-      spinner = formatResult.data === 'table' ? createSpinner('Scanning...').start() : undefined
+      spinner = options.format === 'table' ? createSpinner('Scanning...').start() : undefined
 
       const result = await scan({
         cwd: process.cwd(),
-        production: args.production,
-        cliIgnores,
-        configPath: args.config,
-        timeoutMs: timeoutResult.data,
+        production: options.production,
+        cliIgnores: options.cliIgnores,
+        config: configResult.data,
+        timeoutMs: options.timeoutMs,
       })
 
       if (!result.ok) {
@@ -145,13 +108,13 @@ const main = defineCommand({
       if (spinner) spinner.success({ text: 'Scan complete' })
 
       const output =
-        formatResult.data === 'json'
+        options.format === 'json'
           ? formatJson(result.data)
-          : formatTable(result.data, filterTableResult.data)
+          : formatTable(result.data, options.filterTable)
 
       console.log(output)
 
-      if (!passesThreshold(result.data, levelResult.data)) {
+      if (!passesThreshold(result.data, options.level, options.failOn)) {
         process.exitCode = EXIT_VULNERABILITIES
       }
     } catch (error: unknown) {
