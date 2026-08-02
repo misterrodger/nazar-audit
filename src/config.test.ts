@@ -1,4 +1,4 @@
-import { parseConfigYaml, loadConfigFile } from './config.js'
+import { parseConfigYaml, loadConfigFile, resolveConfig } from './config.js'
 import { expectOk, expectErr } from './test-helpers.js'
 
 describe('parseConfigYaml', () => {
@@ -34,6 +34,7 @@ exceptions:
             "notes": "Dev-only dependency",
           },
         ],
+        "failOn": undefined,
         "filterTable": "moderate",
         "format": "json",
         "level": "high",
@@ -58,6 +59,7 @@ exceptions:
             "id": "GHSA-test-test-test",
           },
         ],
+        "failOn": undefined,
         "filterTable": undefined,
         "format": undefined,
         "level": undefined,
@@ -204,6 +206,23 @@ format: bad
       expect(config.format).toBe(format)
     })
   })
+
+  describe('failOn validation', () => {
+    it.each(['all', 'upgradable', 'patchable'] as const)(
+      'accepts %s as a valid failOn value',
+      (failOn) => {
+        const config = expectOk(parseConfigYaml(`failOn: ${failOn}`))
+
+        expect(config.failOn).toBe(failOn)
+      },
+    )
+
+    it('rejects invalid failOn value', () => {
+      const error = expectErr(parseConfigYaml('failOn: extreme'))
+
+      expect(error).toContain('Invalid .nazar.yml')
+    })
+  })
 })
 
 describe('loadConfigFile', () => {
@@ -211,5 +230,19 @@ describe('loadConfigFile', () => {
     const config = expectOk(loadConfigFile('/nonexistent/path'))
 
     expect(config).toStrictEqual({})
+  })
+})
+
+describe('resolveConfig', () => {
+  it('falls back to loadConfigFile when no configPath is given', () => {
+    const config = expectOk(resolveConfig('/nonexistent/path', undefined))
+
+    expect(config).toStrictEqual({})
+  })
+
+  it('returns err when the given configPath does not exist', () => {
+    const error = expectErr(resolveConfig('/tmp', '/nonexistent/path/.nazar.yml'))
+
+    expect(error).toContain('Config file not found')
   })
 })

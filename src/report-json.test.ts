@@ -1,5 +1,5 @@
 import { formatJson } from './report-json.js'
-import { makeScanResult } from './test-helpers.js'
+import { makeScanResult, makeMetadata } from './test-helpers.js'
 
 type JsonOutput = Record<string, unknown>
 
@@ -33,11 +33,10 @@ describe('formatJson', () => {
 
   it('includes severity counts in metadata', () => {
     const result = makeScanResult({
-      metadata: {
-        ...makeScanResult().metadata,
+      metadata: makeMetadata({
         total: 3,
         severityCounts: { info: 0, low: 0, moderate: 1, high: 1, critical: 1 },
-      },
+      }),
     })
     const parsed = parseOutput(formatJson(result))
     const metadata = parsed['metadata'] as Record<string, unknown>

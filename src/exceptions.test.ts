@@ -1,6 +1,6 @@
-import type { ExceptionEntry } from './types.js'
+import type { ExceptionEntry } from './types/index.js'
 import { applyExceptions } from './exceptions.js'
-import { makeVuln } from './test-helpers.js'
+import { makeVuln, makeAdvisory } from './test-helpers.js'
 
 const FUTURE_DATE = '2099-12-31'
 const PAST_DATE = '2020-01-01'
@@ -322,16 +322,14 @@ describe('applyExceptions', () => {
       const vulns = [
         makeVuln({
           advisories: [
-            {
-              ...makeVuln().advisories[0]!,
+            makeAdvisory({
               source: 1001,
               url: 'https://github.com/advisories/GHSA-aaaa-bbbb-cccc',
-            },
-            {
-              ...makeVuln().advisories[0]!,
+            }),
+            makeAdvisory({
               source: 2002,
               url: 'https://github.com/advisories/GHSA-xxxx-yyyy-zzzz',
-            },
+            }),
           ],
         }),
       ] as const
@@ -364,10 +362,9 @@ describe('applyExceptions', () => {
       const vulns = [
         makeVuln({
           advisories: [
-            {
-              ...makeVuln().advisories[0]!,
+            makeAdvisory({
               url: 'GHSA-no-slash',
-            },
+            }),
           ],
         }),
       ] as const

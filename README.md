@@ -1,8 +1,10 @@
 # nazar-audit
 
+<img src="./assets/nazar-logo.png" alt="nazar-audit" width="80" height="80" align="left" />
+
 A modern, security-conscious package vulnerability scanner for the JavaScript ecosystem.
 
-Named after the **nazar** -- the protective eye amulet found across the Mediterranean that wards off malicious intent.
+Named after the **nazar**, the protective eye amulet found across the Mediterranean that wards off malicious intent.
 
 [![CI](https://github.com/misterrodger/nazar-audit/actions/workflows/ci.yml/badge.svg)](https://github.com/misterrodger/nazar-audit/actions/workflows/ci.yml)
 [![npm version](https://img.shields.io/npm/v/nazar-audit)](https://www.npmjs.com/package/nazar-audit)
@@ -16,6 +18,7 @@ Named after the **nazar** -- the protective eye amulet found across the Mediterr
 - **Dependency paths** showing the full chain for each advisory
 - **Fix availability display** showing upgrade paths and breaking change warnings
 - **Severity thresholds** that independently control exit behavior and table display
+- **Fail-on modes** for CI -- fail only on fixable vulnerabilities (`--fail-on upgradable|patchable`)
 - **Secure by design** -- uses `execFile` (no shell injection), validates all external data with Valibot
 - **Windows compatible** -- handles `npm.cmd` shims automatically
 - Five runtime dependencies: `citty`, `yaml`, `picocolors`, `valibot`, `nanospinner`
@@ -46,6 +49,9 @@ nazar-audit --format json
 # Filter table display while keeping full exit behavior
 nazar-audit --level moderate --filter-table high
 
+# Only fail CI when a fix is actually available
+nazar-audit --fail-on upgradable
+
 # Skip devDependencies
 nazar-audit --production
 
@@ -60,6 +66,9 @@ Create a `.nazar.yml` file in your project root to manage exceptions and default
 ```yaml
 # Minimum severity for non-zero exit
 level: high
+
+# Which vulnerabilities count toward exit code: all (default), upgradable, patchable
+failOn: upgradable
 
 # npm audit timeout in seconds (default: 60)
 timeoutSeconds: 120
@@ -91,24 +100,25 @@ nazar-audit warns about unused exceptions and expired entries in the output.
 | `--filter-table <severity>` | | Only show rows at or above this severity in the table |
 | `--format <type>` | `-f` | Output format: `table` (default) or `json` |
 | `--ignore <ids>` | `-i` | Advisory IDs to ignore (comma-separated GHSA/CVE) |
-| `--production` | `-p` | Pass `--omit=dev` to npm audit |
+| `--production` | `-p` | Pass `--omit=dev` to npm audit (default: `false`) |
+| `--fail-on <mode>` | | Which vulnerabilities count toward exit code: `all` (default), `upgradable`, `patchable` |
 | `--timeout <seconds>` | | npm audit timeout in seconds (default: 60) |
 | `--config <path>` | | Path to `.nazar.yml` config file |
 
-CLI flags take precedence over config file values.
+`--level`, `--format`, `--filter-table`, `--production`, `--fail-on`, and `--timeout` on the CLI take precedence over the matching `.nazar.yml` values. `--ignore` merges with (rather than replaces) config-file `exceptions`.
 
 ## Exit Codes
 
 | Code | Meaning |
 |---|---|
 | 0 | No unhandled vulnerabilities above threshold |
-| 1 | Unhandled vulnerabilities found |
+| 1 | Unhandled vulnerabilities meeting both `--level` and `--fail-on` criteria |
 | 2 | Scanner error (network, parse failure, invalid config) |
 
 ## Requirements
 
 - Node.js >= 22.0.0
-- npm >= 8 (ships with Node 18+)
+- npm >= 10 (ships with Node 22+)
 
 ## Documentation
 
@@ -127,7 +137,7 @@ See the [docs](./docs) folder for the full roadmap and technical details:
 
 ```bash
 npm install
-npm run ship             # full quality gate: audit, depcheck, jscpd, license-check, format, lint, typecheck, build, test
+npm run ship             # full quality gate: audit, depcheck, jscpd, license-check, format, lint, typecheck, build, self-audit, test
 npm run test:watch       # vitest in watch mode
 npm run test:coverage    # vitest with coverage report
 npm run test:mutation    # stryker mutation testing

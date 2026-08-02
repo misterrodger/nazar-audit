@@ -1,4 +1,8 @@
-import { type ExceptionEntry, type MatchedExceptionEntry, type Vulnerability } from './types.js'
+import {
+  type ExceptionEntry,
+  type MatchedExceptionEntry,
+  type Vulnerability,
+} from './types/index.js'
 
 type ExceptionResult = Readonly<{
   matched: ReadonlyArray<MatchedExceptionEntry>

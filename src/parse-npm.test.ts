@@ -1,40 +1,5 @@
-import { readFileSync } from 'node:fs'
-import { join } from 'node:path'
 import { parseNpmAuditJson } from './parse-npm.js'
-import { expectOk, expectErr } from './test-helpers.js'
-
-const fixtureDir = join(import.meta.dirname, 'fixtures')
-const readFixture = (name: string): string => readFileSync(join(fixtureDir, name), 'utf-8')
-
-const makeAuditJson = (overrides: Record<string, unknown> = {}): string =>
-  JSON.stringify({
-    auditReportVersion: 2,
-    vulnerabilities: {
-      testpkg: {
-        name: 'testpkg',
-        severity: 'high',
-        isDirect: false,
-        via: [
-          {
-            source: 1,
-            name: 'testpkg',
-            dependency: 'testpkg',
-            title: 'Test vulnerability',
-            url: 'https://github.com/advisories/GHSA-test-test-test',
-            severity: 'high',
-            cwe: ['CWE-1'],
-            cvss: { score: 7.5, vectorString: 'CVSS:3.1/AV:N' },
-            range: '<1.0.0',
-          },
-        ],
-        effects: [],
-        range: '<1.0.0',
-        nodes: ['node_modules/testpkg'],
-        fixAvailable: false,
-        ...overrides,
-      },
-    },
-  } as const)
+import { expectOk, expectErr, readFixture, makeRawAuditJson } from './test-helpers.js'
 
 describe('parseNpmAuditJson', () => {
   describe('fixture: real npm audit output', () => {
@@ -94,7 +59,9 @@ describe('parseNpmAuditJson', () => {
 
   describe('fixAvailable normalization', () => {
     it('normalizes fixAvailable false to kind none', () => {
-      const data = expectOk(parseNpmAuditJson(makeAuditJson({ fixAvailable: false })))
+      const data = expectOk(
+        parseNpmAuditJson(makeRawAuditJson({ testpkg: { fixAvailable: false } })),
+      )
 
       expect(data[0]!.fixAvailable).toMatchInlineSnapshot(`
         {
@@ -104,7 +71,9 @@ describe('parseNpmAuditJson', () => {
     })
 
     it('normalizes fixAvailable true to kind compatible', () => {
-      const data = expectOk(parseNpmAuditJson(makeAuditJson({ fixAvailable: true })))
+      const data = expectOk(
+        parseNpmAuditJson(makeRawAuditJson({ testpkg: { fixAvailable: true } })),
+      )
 
       expect(data[0]!.fixAvailable).toMatchInlineSnapshot(`
         {
@@ -116,8 +85,8 @@ describe('parseNpmAuditJson', () => {
     it('normalizes fixAvailable object with isSemVerMajor true to kind breaking', () => {
       const data = expectOk(
         parseNpmAuditJson(
-          makeAuditJson({
-            fixAvailable: { name: 'parent', version: '2.0.0', isSemVerMajor: true },
+          makeRawAuditJson({
+            testpkg: { fixAvailable: { name: 'parent', version: '2.0.0', isSemVerMajor: true } },
           }),
         ),
       )
@@ -134,8 +103,8 @@ describe('parseNpmAuditJson', () => {
     it('normalizes fixAvailable object with isSemVerMajor false to kind compatible', () => {
       const data = expectOk(
         parseNpmAuditJson(
-          makeAuditJson({
-            fixAvailable: { name: 'parent', version: '1.2.3', isSemVerMajor: false },
+          makeRawAuditJson({
+            testpkg: { fixAvailable: { name: 'parent', version: '1.2.3', isSemVerMajor: false } },
           }),
         ),
       )
@@ -234,7 +203,7 @@ describe('parseNpmAuditJson', () => {
     })
 
     it('preserves present vectorString', () => {
-      const data = expectOk(parseNpmAuditJson(makeAuditJson()))
+      const data = expectOk(parseNpmAuditJson(makeRawAuditJson()))
 
       expect(data[0]!.advisories[0]!.cvss).toMatchInlineSnapshot(`
         {
@@ -345,7 +314,7 @@ describe('parseNpmAuditJson', () => {
 
   describe('full parsed structure', () => {
     it('parses a complete vulnerability with all fields', () => {
-      const data = expectOk(parseNpmAuditJson(makeAuditJson()))
+      const data = expectOk(parseNpmAuditJson(makeRawAuditJson()))
 
       expect(data[0]).toMatchInlineSnapshot(`
         {

@@ -2,6 +2,14 @@ export const SEVERITY_ORDER = ['info', 'low', 'moderate', 'high', 'critical'] as
 
 export type Severity = (typeof SEVERITY_ORDER)[number]
 
+export const FAIL_ON_VALUES = ['all', 'upgradable', 'patchable'] as const
+
+export type FailOn = (typeof FAIL_ON_VALUES)[number]
+
+export const VALID_FORMATS = ['table', 'json'] as const
+
+export type OutputFormat = (typeof VALID_FORMATS)[number]
+
 export type FixAvailability =
   | Readonly<{ kind: 'none' }>
   | Readonly<{ kind: 'compatible' }>
@@ -49,7 +57,8 @@ export type MatchedExceptionEntry = ExceptionEntry & Readonly<{ matchedVulnerabi
 
 export type NazarConfig = Readonly<{
   level?: Severity | undefined
-  format?: 'table' | 'json' | undefined
+  failOn?: FailOn | undefined
+  format?: OutputFormat | undefined
   filterTable?: Severity | undefined
   production?: boolean | undefined
   timeoutSeconds?: number | undefined
@@ -79,6 +88,9 @@ export type Result<T> = Readonly<{ ok: true; data: T }> | Readonly<{ ok: false; 
 
 export const isSeverity = (value: string): value is Severity =>
   (SEVERITY_ORDER as ReadonlyArray<string>).includes(value)
+
+export const isFailOn = (value: string): value is FailOn =>
+  (FAIL_ON_VALUES as ReadonlyArray<string>).includes(value)
 
 export const severityIndex = (severity: Severity): number => SEVERITY_ORDER.indexOf(severity)
 

@@ -1,5 +1,5 @@
 import pc from 'picocolors'
-import { VERSION } from './index.js'
+import { APP_NAME, VERSION } from './constants.js'
 
 const NAZAR_ART = [
   '         ██████████████',
@@ -36,7 +36,7 @@ export const getBanner = (
   const art = NAZAR_ART.map((line) =>
     colorizeLine(line, colors.blue, colors.cyan, brightWhite),
   ).join('\n')
-  const text = `  ${colors.bold(colors.cyan('nazar-audit'))}${colors.dim(` v${VERSION}`)}`
+  const text = `  ${colors.bold(colors.cyan(APP_NAME))}${colors.dim(` v${VERSION}`)}`
 
   return `${art}\n${text}`
 }

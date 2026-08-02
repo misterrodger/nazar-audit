@@ -93,19 +93,23 @@ type ExceptionEntry = {
   readonly addedBy?: string
 }
 
+// Implemented
 type NazarConfig = {
   readonly level?: Severity
-  readonly format?: 'table' | 'json' | 'sarif' | 'markdown'
+  readonly failOn?: 'all' | 'upgradable' | 'patchable'
+  readonly format?: 'table' | 'json'
   readonly filterTable?: Severity
   readonly production?: boolean
   readonly timeoutSeconds?: number
   readonly exceptions?: readonly ExceptionEntry[]
-  readonly includeColumns?: readonly string[]
-  readonly registry?: string
-  readonly retryCount?: number
-  readonly passEnoaudit?: boolean
-  readonly failOn?: 'all' | 'upgradable' | 'patchable'
 }
+
+// Planned (Phase 1+) -- not yet in src/types/index.ts
+//   includeColumns: readonly string[]  -- D8 deferred column configurability
+//   registry: string                  -- D15, deferred pending RCE-safety review
+//   retryCount: number                -- P1.8
+//   passEnoaudit: boolean             -- P1.8
+//   format: 'sarif' | 'markdown'      -- P1.1
 ```
 
 ## Scan Result Type

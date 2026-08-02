@@ -1,6 +1,6 @@
 {
   "name": "nazar-audit",
-  "version": "0.1.0-beta.2",
+  "version": "0.1.0-beta.3",
   "description": "A modern, security-conscious package vulnerability scanner for the JavaScript ecosystem. Wraps npm/pnpm/yarn audit with exception management, multiple output formats, and fix availability reporting.",
   "license": "MIT",
   "author": "John Rodger",
@@ -36,6 +36,7 @@
     "test:coverage": "vitest run --coverage",
     "test:mutation": "stryker run",
     "audit": "npm audit --audit-level=high",
+    "audit:self": "node dist/cli.mjs --level high",
     "depcheck": "knip --dependencies",
     "jscpd": "jscpd src/ --min-lines 10 --min-tokens 100 --ignore \"**/*.test.*\"",
     "license-check": "license-compliance --allow 'MIT;ISC;Apache-2.0;BSD-2-Clause;BSD-3-Clause;0BSD;CC0-1.0;CC-BY-3.0;CC-BY-4.0;Python-2.0;Unlicense;MPL-2.0;BlueOak-1.0.0' --exclude 'spdx-ranges'",
