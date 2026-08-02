@@ -50,6 +50,14 @@ const RawNpmAuditReportSchema = v.object({
   vulnerabilities: v.record(v.string(), RawVulnerabilitySchema),
 })
 
+const RawNpmErrorSchema = v.object({
+  error: v.object({
+    code: v.optional(v.string()),
+    summary: v.optional(v.string()),
+    detail: v.optional(v.string()),
+  }),
+})
+
 type RawAdvisory = v.InferOutput<typeof RawAdvisorySchema>
 type RawFixObject = v.InferOutput<typeof RawFixObjectSchema>
 export type RawVulnerability = v.InferOutput<typeof RawVulnerabilitySchema>
@@ -115,7 +123,17 @@ const safeJsonParse = (jsonString: string): Result<unknown> => {
   }
 }
 
-const parseReport = (data: unknown): Result<ReadonlyArray<Vulnerability>> => {
+const formatNpmError = (raw: v.InferOutput<typeof RawNpmErrorSchema>): string => {
+  const {
+    error: { code, summary, detail },
+  } = raw
+  const codePrefix = code !== undefined ? `[${code}] ` : ''
+  const detailSuffix = detail ? ` ${detail}` : ''
+
+  return `${codePrefix}${summary ?? 'npm audit could not run'}${detailSuffix}`
+}
+
+const parseAuditReport = (data: unknown): Result<ReadonlyArray<Vulnerability>> => {
   const reportResult = v.safeParse(RawNpmAuditReportSchema, data)
 
   return !reportResult.success
@@ -125,6 +143,14 @@ const parseReport = (data: unknown): Result<ReadonlyArray<Vulnerability>> => {
           `Unsupported audit report version: ${String(reportResult.output.auditReportVersion)}. Only version ${String(AUDIT_REPORT_VERSION)} (npm v7+) is supported.`,
         )
       : ok(Object.values(reportResult.output.vulnerabilities).map(parseVulnerability))
+}
+
+const parseReport = (data: unknown): Result<ReadonlyArray<Vulnerability>> => {
+  const npmErrorResult = v.safeParse(RawNpmErrorSchema, data)
+
+  return npmErrorResult.success
+    ? err(`npm audit failed: ${formatNpmError(npmErrorResult.output)}`)
+    : parseAuditReport(data)
 }
 
 export const parseNpmAuditJson = (jsonString: string): Result<ReadonlyArray<Vulnerability>> => {

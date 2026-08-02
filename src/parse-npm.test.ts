@@ -214,6 +214,45 @@ describe('parseNpmAuditJson', () => {
     })
   })
 
+  describe('npm error envelope handling', () => {
+    it('surfaces npm error code, summary, and detail', () => {
+      const json = JSON.stringify({
+        error: {
+          code: 'ENOLOCK',
+          summary: 'This command requires an existing lockfile.',
+          detail: 'Try creating one first with: npm i --package-lock-only',
+        },
+      } as const)
+      const error = expectErr(parseNpmAuditJson(json))
+
+      expect(error).toMatchInlineSnapshot(
+        `"npm audit failed: [ENOLOCK] This command requires an existing lockfile. Try creating one first with: npm i --package-lock-only"`,
+      )
+    })
+
+    it('handles an error envelope with only a summary', () => {
+      const json = JSON.stringify({
+        error: { summary: 'Registry unreachable' },
+      } as const)
+      const error = expectErr(parseNpmAuditJson(json))
+
+      expect(error).toBe('npm audit failed: Registry unreachable')
+    })
+
+    it('does not append a trailing separator for an empty detail', () => {
+      const json = JSON.stringify({
+        error: {
+          code: 'ENOLOCK',
+          summary: 'This command requires an existing lockfile.',
+          detail: '',
+        },
+      } as const)
+      const error = expectErr(parseNpmAuditJson(json))
+
+      expect(error).toBe('npm audit failed: [ENOLOCK] This command requires an existing lockfile.')
+    })
+  })
+
   describe('error cases', () => {
     it('returns err for invalid JSON', () => {
       const error = expectErr(parseNpmAuditJson('not json'))
