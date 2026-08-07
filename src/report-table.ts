@@ -10,6 +10,7 @@ import {
 } from './types/index.js'
 
 type TableRow = Readonly<{
+  id: string
   severity: Severity
   module: string
   title: string
@@ -19,6 +20,7 @@ type TableRow = Readonly<{
 }>
 
 type ColumnWidths = Readonly<{
+  id: number
   severity: number
   module: number
   title: number
@@ -30,11 +32,13 @@ const COLUMN_GAP = '  '
 const [GAP_WIDTH] = [COLUMN_GAP.length] as const
 const MIN_TITLE_WIDTH = 20
 const MIN_PATHS_WIDTH = 15
+const MIN_ID_WIDTH = 2
 const MAX_MODULE_WIDTH = 30
 const MAX_PATHS_WIDTH = 50
 const DEFAULT_TERMINAL_WIDTH = 160
 const URL_ESTIMATED_WIDTH = 60
-const FIXED_COLUMN_COUNT = 5
+const FIXED_COLUMN_COUNT = 6
+const MISSING_ID = '-'
 
 const SEVERITY_DESC = [...SEVERITY_ORDER].reverse()
 
@@ -54,17 +58,29 @@ const formatFixAvailability = (fix: FixAvailability): string =>
       : `Breaking (${fix.name}@${fix.version})`
 
 const shortenPath = (nodePath: string): string =>
-  nodePath.replace(/node_modules\//g, '').replace(/\//g, '>')
+  nodePath
+    .split(/\/?node_modules\//)
+    .filter(Boolean)
+    .join('->')
+
+const getViaPackages = (vuln: Vulnerability): ReadonlyArray<string> =>
+  vuln.via.filter((entry): entry is string => typeof entry === 'string')
 
 const formatPaths = (vuln: Vulnerability): string => {
   const shortened = vuln.nodes.map(shortenPath)
-  const viaStrings = vuln.via.filter((v): v is string => typeof v === 'string')
+  const viaPackages = getViaPackages(vuln)
 
   return shortened.length > 0
     ? shortened.join(', ')
-    : viaStrings.length > 0
-      ? `via ${viaStrings.join(', ')}`
+    : viaPackages.length > 0
+      ? `via ${viaPackages.join(', ')}`
       : ''
+}
+
+const formatTransitiveTitle = (vuln: Vulnerability): string => {
+  const viaPackages = getViaPackages(vuln)
+
+  return viaPackages.length > 0 ? `(transitive via ${viaPackages.join(', ')})` : '(transitive)'
 }
 
 const deduplicateAdvisories = (advisories: ReadonlyArray<Advisory>): ReadonlyArray<Advisory> =>
@@ -73,25 +89,27 @@ const deduplicateAdvisories = (advisories: ReadonlyArray<Advisory>): ReadonlyArr
   )
 
 const vulnToRows = (vuln: Vulnerability): ReadonlyArray<TableRow> => {
-  const paths = formatPaths(vuln)
   const unique = deduplicateAdvisories(vuln.advisories)
+  const shared = {
+    module: vuln.name,
+    paths: formatPaths(vuln),
+    fix: formatFixAvailability(vuln.fixAvailable),
+  }
 
   return unique.length > 0
     ? unique.map((advisory) => ({
+        ...shared,
+        id: String(advisory.source),
         severity: advisory.severity,
-        module: vuln.name,
         title: advisory.title,
-        paths,
-        fix: formatFixAvailability(vuln.fixAvailable),
         url: advisory.url,
       }))
     : [
         {
+          ...shared,
+          id: MISSING_ID,
           severity: vuln.severity,
-          module: vuln.name,
-          title: '(transitive)',
-          paths,
-          fix: formatFixAvailability(vuln.fixAvailable),
+          title: formatTransitiveTitle(vuln),
           url: '',
         },
       ]
@@ -131,13 +149,15 @@ const wrapText = (text: string, maxWidth: number): ReadonlyArray<string> => {
 }
 
 const calculateWidths = (rows: ReadonlyArray<TableRow>, terminalWidth?: number): ColumnWidths => {
+  const id = Math.max(MIN_ID_WIDTH, ...rows.map((r) => r.id.length))
   const severity = Math.max(8, ...rows.map((r) => r.severity.length))
   const module_ = Math.min(MAX_MODULE_WIDTH, Math.max(7, ...rows.map((r) => r.module.length)))
   const fix = Math.max(3, ...rows.map((r) => r.fix.length))
 
   // eslint-disable-next-line @typescript-eslint/no-unnecessary-condition -- columns is undefined in non-TTY environments
   const width = terminalWidth ?? process.stdout.columns ?? DEFAULT_TERMINAL_WIDTH
-  const fixedWidth = severity + module_ + fix + URL_ESTIMATED_WIDTH + GAP_WIDTH * FIXED_COLUMN_COUNT
+  const fixedWidth =
+    id + severity + module_ + fix + URL_ESTIMATED_WIDTH + GAP_WIDTH * FIXED_COLUMN_COUNT
   const remaining = Math.max(0, width - fixedWidth)
 
   const naturalTitle = Math.max(MIN_TITLE_WIDTH, ...rows.map((r) => r.title.length))
@@ -154,11 +174,12 @@ const calculateWidths = (rows: ReadonlyArray<TableRow>, terminalWidth?: number):
   )
   const paths = Math.max(MIN_PATHS_WIDTH, Math.min(naturalPaths, remaining - title))
 
-  return { severity, module: module_, title, paths, fix }
+  return { id, severity, module: module_, title, paths, fix }
 }
 
 const renderHeader = (widths: ColumnWidths): string => {
   const headers = [
+    padRight('ID', widths.id),
     padRight('Severity', widths.severity),
     padRight('Package', widths.module),
     padRight('Title', widths.title),
@@ -168,6 +189,7 @@ const renderHeader = (widths: ColumnWidths): string => {
   ].join(COLUMN_GAP)
 
   const separator = [
+    '─'.repeat(widths.id),
     '─'.repeat(widths.severity),
     '─'.repeat(widths.module),
     '─'.repeat(widths.title),
@@ -186,6 +208,7 @@ const renderRow = (row: TableRow, widths: ColumnWidths): string => {
   const emptyPad = (width: number): string => padRight('', width)
 
   const firstLine = [
+    padRight(row.id, widths.id),
     SEVERITY_COLORIZERS[row.severity](padRight(row.severity, widths.severity)),
     padRight(truncate(row.module, widths.module), widths.module),
     padRight(titleLines[0] ?? '', widths.title),
@@ -198,6 +221,7 @@ const renderRow = (row: TableRow, widths: ColumnWidths): string => {
     const lineIndex = i + 1
 
     return [
+      emptyPad(widths.id),
       emptyPad(widths.severity),
       emptyPad(widths.module),
       padRight(titleLines[lineIndex] ?? '', widths.title),
@@ -219,6 +243,28 @@ const countUniquePackages = (vulns: ReadonlyArray<Vulnerability>): number =>
 const countAdvisories = (vulns: ReadonlyArray<Vulnerability>): number =>
   vulns.reduce((sum, v) => sum + Math.max(1, deduplicateAdvisories(v.advisories).length), 0)
 
+const definedStrings = (values: ReadonlyArray<string | undefined>): ReadonlyArray<string> => [
+  ...new Set(values.filter((value): value is string => value !== undefined)),
+]
+
+const formatMatchedExceptions = (result: ScanResult): string => {
+  const ids = definedStrings(result.exceptions.matched.map((exception) => exception.id))
+  const modules = definedStrings(result.exceptions.matched.map((exception) => exception.module))
+  const idsText = ids.length > 0 ? `IDs ${ids.join(', ')}` : ''
+  const modulesText = modules.length > 0 ? `packages ${modules.join(', ')}` : ''
+  const matchedValues = [idsText, modulesText].filter(Boolean).join(' and ')
+
+  return matchedValues === '' ? '' : `Exceptions were added for ${matchedValues}.`
+}
+
+const wrapIfPresent = (text: string, prefix: string, suffix = ''): string =>
+  text === '' ? '' : `${prefix}${text}${suffix}`
+
+const exceptionWarning = (items: ReadonlyArray<unknown>, label: string): string =>
+  items.length > 0
+    ? `\n${pc.yellow(`${String(items.length)} ${label} exception(s) in config`)}`
+    : ''
+
 const formatSummary = (result: ScanResult): string => {
   const pkgCount = countUniquePackages(result.unhandled)
   const vulnCount = countAdvisories(result.unhandled)
@@ -230,25 +276,19 @@ const formatSummary = (result: ScanResult): string => {
       ? `, ${String(result.exceptions.matched.length)} excepted`
       : ''
 
-  const unhandledCounts = SEVERITY_ORDER.reduce(
-    (acc, s) => ({ ...acc, [s]: result.unhandled.filter((v) => v.severity === s).length }),
-    {} as Record<Severity, number>,
-  )
-  const severityBreakdown = SEVERITY_ORDER.filter((s) => unhandledCounts[s] > 0)
-    .map((s) => colorSeverityCount(s, unhandledCounts[s]))
+  const severityBreakdown = SEVERITY_ORDER.map((s) => ({
+    s,
+    count: result.unhandled.filter((v) => v.severity === s).length,
+  }))
+    .filter(({ count }) => count > 0)
+    .map(({ s, count }) => colorSeverityCount(s, count))
     .join(', ')
 
-  const unusedWarning =
-    result.exceptions.unused.length > 0
-      ? `\n${pc.yellow(`${String(result.exceptions.unused.length)} unused exception(s) in config`)}`
-      : ''
+  const unusedWarning = exceptionWarning(result.exceptions.unused, 'unused')
+  const expiredWarning = exceptionWarning(result.exceptions.expired, 'expired')
+  const matchedExceptionsLine = wrapIfPresent(formatMatchedExceptions(result), '\n\n')
 
-  const expiredWarning =
-    result.exceptions.expired.length > 0
-      ? `\n${pc.yellow(`${String(result.exceptions.expired.length)} expired exception(s) in config`)}`
-      : ''
-
-  return `${total}${unhandledSuffix}${matchedSuffix}\n  ${severityBreakdown}${unusedWarning}${expiredWarning}`
+  return `${total}${unhandledSuffix}${matchedSuffix}\n  ${severityBreakdown}${matchedExceptionsLine}${unusedWarning}${expiredWarning}`
 }
 
 const formatTableOutput = (
@@ -277,8 +317,9 @@ export const formatTable = (
     filterSeverity !== undefined && allRows.length > 0
       ? `No vulnerabilities at or above ${filterSeverity} severity.`
       : 'No vulnerabilities found.'
+  const matchedExceptionsLine = wrapIfPresent(formatMatchedExceptions(result), '\n', '\n')
 
   return rows.length === 0
-    ? `\n${pc.green(emptyMessage)}\n`
+    ? `\n${pc.green(emptyMessage)}\n${matchedExceptionsLine}`
     : formatTableOutput(rows, result, terminalWidth)
 }

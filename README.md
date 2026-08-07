@@ -88,9 +88,15 @@ exceptions:
   - id: "CVE-2024-1234"
     active: false
     notes: "Re-enabled after patch lands"
+
+  - id: 1234567
+    notes: "Accepted numeric npm advisory source ID"
 ```
 
-nazar-audit warns about unused exceptions and expired entries in the output.
+Exception IDs may be quoted strings such as GHSA, CVE, or UUID-style values, or unquoted
+integer npm advisory source IDs. Numeric IDs are normalized to strings internally.
+nazar-audit lists matched exception IDs and package names and warns about unused or expired
+entries.
 
 ## CLI Options
 
