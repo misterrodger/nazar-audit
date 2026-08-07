@@ -46,6 +46,7 @@ exceptions:
 
 Features:
 - Match by GHSA ID, CVE ID, or numeric advisory source ID
+- Accept quoted string IDs (including alphanumeric and hyphenated values) or unquoted integer IDs; normalize numeric IDs to strings
 - ID matching extracts the tail from advisory URLs for exact comparison
 - `active` flag (default: true)
 - `expiry` date (ISO 8601) -- expired exceptions are reported
@@ -61,6 +62,7 @@ Explicit config path:
 ## P0.4 Unused Exception Detection
 
 After matching exceptions against found vulnerabilities:
+- Lists unique matched exception IDs and package names in the table summary
 - Reports exception IDs that didn't match any vulnerability
 - Reports expired exceptions separately
 
@@ -79,10 +81,11 @@ Colored, fixed-column table with dynamic width:
 
 | Column | Description |
 |---|---|
+| ID | Numeric npm advisory source ID (`-` when the vulnerability has no advisory) |
 | Severity | Colored severity label |
 | Package | Package name |
-| Title | Advisory title (word-wrapped to available width) |
-| Paths | Shortened dependency paths (`node_modules/a/node_modules/b` -> `a>b`) |
+| Title | Advisory title, or `(transitive via package)` for meta-vulnerabilities |
+| Paths | Shortened dependency paths (`node_modules/a/node_modules/b` -> `a->b`) |
 | Fix | Fix availability (yes/breaking/no) |
 | URL | Link to advisory |
 

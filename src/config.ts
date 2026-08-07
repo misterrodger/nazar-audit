@@ -12,8 +12,13 @@ import {
   err,
 } from './types/index.js'
 
+const ExceptionIdSchema = v.pipe(
+  v.union([v.string(), v.pipe(v.number(), v.integer())]),
+  v.transform(String),
+)
+
 const ExceptionEntrySchema = v.object({
-  id: v.optional(v.string()),
+  id: v.optional(ExceptionIdSchema),
   module: v.optional(v.string()),
   active: v.optional(v.boolean()),
   expiry: v.optional(v.string()),

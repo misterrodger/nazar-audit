@@ -69,6 +69,45 @@ exceptions:
     `)
   })
 
+  it('accepts string and numeric exception ids', () => {
+    const config = expectOk(
+      parseConfigYaml(`
+exceptions:
+  - id: 123
+  - id: "550e8400-e29b-41d4-a716-446655440000"
+  - id: "GHSA-xxxx-yyyy-zzzz"
+`),
+    )
+
+    expect(config.exceptions).toStrictEqual([
+      { id: '123' },
+      { id: '550e8400-e29b-41d4-a716-446655440000' },
+      { id: 'GHSA-xxxx-yyyy-zzzz' },
+    ])
+  })
+
+  it('rejects non-string and non-numeric exception ids', () => {
+    const error = expectErr(
+      parseConfigYaml(`
+exceptions:
+  - id: true
+`),
+    )
+
+    expect(error).toContain('Invalid .nazar.yml')
+  })
+
+  it('rejects non-integer numeric exception ids', () => {
+    const error = expectErr(
+      parseConfigYaml(`
+exceptions:
+  - id: 123.4
+`),
+    )
+
+    expect(error).toContain('Invalid .nazar.yml')
+  })
+
   it('returns empty config for empty YAML', () => {
     const config = expectOk(parseConfigYaml(''))
 

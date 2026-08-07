@@ -1,6 +1,6 @@
 {
   "name": "nazar-audit",
-  "version": "0.1.0",
+  "version": "0.1.1",
   "description": "A modern, security-conscious package vulnerability scanner for the JavaScript ecosystem. Wraps npm/pnpm/yarn audit with exception management, multiple output formats, and fix availability reporting.",
   "license": "MIT",
   "author": "John Rodger",
@@ -51,15 +51,23 @@
     "audit",
     "security",
     "vulnerability",
+    "vulnerabilities",
     "scanner",
+    "security-scanner",
     "exceptions",
     "allowlist",
-    "sarif",
     "ci",
     "pnpm",
     "yarn",
     "dependencies",
-    "supply-chain"
+    "supply-chain",
+    "cli",
+    "cli-tool",
+    "nodejs",
+    "typescript",
+    "devsecops",
+    "sca",
+    "package-manager"
   ],
   "devDependencies": {
     "@eslint/js": "^10.0.1",

@@ -46,9 +46,9 @@ Decisions made during the MVP planning session, preserved for future reference.
 
 ## D8. Table output columns
 
-**Decision:** Fixed default table: Severity, Package, Title, Paths, Fix, URL. No `--include-columns` configurability.
+**Decision:** Fixed default table: ID, Severity, Package, Title, Paths, Fix, URL. No `--include-columns` configurability.
 
-**Rationale:** Less config surface, ship faster. "Paths" column shows shortened dependency chains (e.g. `pkg>dep`) for each advisory. "Module" renamed to "Package" for clarity. better-npm-audit had column configurability and it was rarely used. Add it in Phase 1 if users request it.
+**Rationale:** Less config surface, ship faster. "Paths" column shows shortened dependency chains (e.g. `pkg->dep`) for each advisory. "Module" renamed to "Package" for clarity. better-npm-audit had column configurability and it was rarely used. Add it in Phase 1 if users request it.
 
 ## D9. --filter-table default behavior
 
@@ -211,3 +211,21 @@ Decisions made during the MVP planning session, preserved for future reference.
 **Decision:** `--fail-on <all|upgradable|patchable>` (config key `failOn`, default `all`) filters which vulnerabilities can trigger a non-zero exit code, combined with `--level`'s severity threshold via AND evaluated **per vulnerability** inside `passesThreshold`'s existing `.every()` -- not as two independently-reduced booleans ANDed together. `upgradable` matches `fixAvailable.kind === 'compatible'`; `patchable` matches `fixAvailable.kind !== 'none'` (compatible or breaking); `all` matches everything (unchanged default behavior).
 
 **Rationale:** Reducing severity-threshold and fail-on-class as two separate set-level booleans is incorrect: a scan with one low-severity/upgradable vuln and one critical-severity/unfixable vuln would incorrectly fail under `--fail-on upgradable`, even though no single vulnerability is both at/above the severity threshold and upgradable. Only a per-vulnerability combined predicate produces the intended "block on vulnerabilities that are both severe enough and fixable in the requested way" semantics.
+
+## D36. Table ID column
+
+**Decision:** The table's first column is `ID`, showing the numeric npm advisory source ID (`Advisory.source`), rendered as `-` for meta-vulnerability rows that have no advisory. The `URL` column is retained alongside it.
+
+**Rationale:** The numeric source ID is one of the three exception match keys (D7) but was previously invisible in table output, so users had no way to see it without switching to `--format json`. It leads the row because it is the value you copy into `--ignore` or a config `exceptions` entry. The URL stays because it is the only navigable link to the advisory write-up, and users who prefer matching on the GHSA ID can take it from the URL tail -- duplicating the GHSA into its own column would cost width without adding information.
+
+## D37. Exception ID input and summary
+
+**Decision:** `.nazar.yml` accepts exception IDs as strings or integers and normalizes integers to strings at the config boundary. Table output lists the unique IDs and package names of matched exceptions in a labeled sentence, including when every vulnerability is excepted.
+
+**Rationale:** YAML parses an unquoted numeric advisory source ID as a number, while exception matching uses strings. Boundary normalization supports natural YAML without widening the internal `ExceptionEntry.id` type or duplicating matching logic. Integer validation rejects numeric values that cannot match an npm advisory source ID. String IDs remain unrestricted so GHSA, CVE, UUID-style, and other alphanumeric identifiers with hyphens are accepted. Reporting matched IDs and package names confirms which configured exceptions actually took effect without presenting unused or expired entries as applied.
+
+## D38. Transitive row context and path separator
+
+**Decision:** Meta-vulnerability titles include npm's upstream package references as `(transitive via package)`. Dependency paths use `->` between package levels while preserving scoped package names.
+
+**Rationale:** A bare `(transitive)` label explains why no advisory ID exists but not which package carries the advisory. Including the `via` package makes the relationship visible in the same row. The arrow makes dependency direction clearer than a single greater-than character.

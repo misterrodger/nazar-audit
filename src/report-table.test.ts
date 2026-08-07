@@ -27,9 +27,9 @@ describe('formatTable', () => {
 
     expect(output).toMatchInlineSnapshot(`
       "
-      Severity  Package  Title                 Paths            Fix  URL
-      ────────  ───────  ────────────────────  ───────────────  ───  ───
-      high      testpkg  Test Vulnerability    testpkg          No   https://github.com/advisories/GHSA-aaaa-bbbb-cccc
+      ID    Severity  Package  Title                 Paths            Fix  URL
+      ────  ────────  ───────  ────────────────────  ───────────────  ───  ───
+      1001  high      testpkg  Test Vulnerability    testpkg          No   https://github.com/advisories/GHSA-aaaa-bbbb-cccc
 
       Found 1 package with 1 vulnerability (1 unhandled)
         1 high
@@ -74,10 +74,10 @@ describe('formatTable', () => {
 
     expect(output).toMatchInlineSnapshot(`
       "
-      Severity  Package   Title                 Paths            Fix  URL
-      ────────  ────────  ────────────────────  ───────────────  ───  ───
-      critical  crit-pkg  Critical vuln         crit-pkg         No   https://github.com/advisories/GHSA-crit-crit-crit
-      low       low-pkg   Low vuln              low-pkg          No   https://github.com/advisories/GHSA-low0-low0-low0
+      ID    Severity  Package   Title                 Paths            Fix  URL
+      ────  ────────  ────────  ────────────────────  ───────────────  ───  ───
+      1001  critical  crit-pkg  Critical vuln         crit-pkg         No   https://github.com/advisories/GHSA-crit-crit-crit
+      1001  low       low-pkg   Low vuln              low-pkg          No   https://github.com/advisories/GHSA-low0-low0-low0
 
       Found 2 packages with 2 vulnerabilities (2 unhandled)
         1 low, 1 critical
@@ -212,10 +212,12 @@ describe('formatTable', () => {
         }),
       })
       const output = stripAnsi(formatTable(result, undefined))
+      const dataLine = output
+        .split('\n')
+        .find((line) => line.includes('(transitive via upstream-pkg)'))
 
-      expect(output).toContain('(transitive)')
-      expect(output).toContain('via upstream-pkg')
-      expect(output).not.toContain('https://')
+      expect(dataLine).toMatch(/\(transitive via upstream-pkg\) +via upstream-pkg/)
+      expect(dataLine).not.toContain('https://')
     })
 
     it('renders empty url for meta-vulnerabilities', () => {
@@ -240,7 +242,7 @@ describe('formatTable', () => {
         }),
       })
       const output = stripAnsi(formatTable(result, undefined))
-      const dataLine = output.split('\n').find((l) => l.includes('(transitive)'))
+      const dataLine = output.split('\n').find((line) => line.includes('(transitive)'))
 
       expect(dataLine).toBeDefined()
       expect(dataLine).not.toContain('via ')
@@ -263,6 +265,52 @@ describe('formatTable', () => {
     })
   })
 
+  describe('id column', () => {
+    it('renders a placeholder when the vulnerability has no advisory', () => {
+      const result = makeScanResult({
+        unhandled: [makeVuln({ advisories: [], via: ['upstream-pkg'], nodes: [] })],
+        metadata: makeMetadata({
+          total: 1,
+          severityCounts: { info: 0, low: 0, moderate: 0, high: 1, critical: 0 },
+        }),
+      })
+      const output = stripAnsi(formatTable(result, undefined))
+      const dataLine = output
+        .split('\n')
+        .find((line) => line.includes('(transitive via upstream-pkg)'))
+
+      expect(dataLine).toMatch(/^- +high/)
+    })
+
+    it('renders the source id of each advisory on its own row', () => {
+      const advisory = makeAdvisory()
+      const result = makeScanResult({
+        unhandled: [
+          makeVuln({
+            advisories: [
+              advisory,
+              {
+                ...advisory,
+                source: 2002,
+                title: 'Another issue',
+                url: 'https://github.com/advisories/GHSA-zzzz-yyyy-xxxx',
+              },
+            ],
+          }),
+        ],
+        metadata: makeMetadata({
+          total: 1,
+          severityCounts: { info: 0, low: 0, moderate: 0, high: 2, critical: 0 },
+        }),
+      })
+      const output = stripAnsi(formatTable(result, undefined))
+      const dataLines = output.split('\n')
+
+      expect(dataLines.find((line) => line.includes('Test Vulnerability'))).toMatch(/^1001 +high/)
+      expect(dataLines.find((line) => line.includes('Another issue'))).toMatch(/^2002 +high/)
+    })
+  })
+
   describe('paths column', () => {
     it('shortens node_modules paths into readable chains', () => {
       const result = makeScanResult({
@@ -278,7 +326,24 @@ describe('formatTable', () => {
       })
       const output = stripAnsi(formatTable(result, undefined))
 
-      expect(output).toContain('express>body-parser')
+      expect(output).toContain('express->body-parser')
+    })
+
+    it('preserves scoped package names in shortened paths', () => {
+      const result = makeScanResult({
+        unhandled: [
+          makeVuln({
+            nodes: ['node_modules/@scope/pkg/node_modules/dep'],
+          }),
+        ],
+        metadata: makeMetadata({
+          total: 1,
+          severityCounts: { info: 0, low: 0, moderate: 0, high: 1, critical: 0 },
+        }),
+      })
+      const output = stripAnsi(formatTable(result, undefined))
+
+      expect(output).toContain('@scope/pkg->dep')
     })
 
     it('shows direct dependency path', () => {
@@ -308,7 +373,7 @@ describe('formatTable', () => {
       })
       const output = stripAnsi(formatTable(result, undefined))
 
-      expect(output).toContain('foo, bar>foo')
+      expect(output).toContain('foo, bar->foo')
     })
   })
 
@@ -438,6 +503,93 @@ describe('formatTable', () => {
       const output = stripAnsi(formatTable(result, undefined))
 
       expect(output).toContain('1 excepted')
+      expect(output).toContain('Exceptions were added for IDs GHSA-xxxx.')
+    })
+
+    it('lists unique ids for matched exceptions', () => {
+      const result = makeScanResult({
+        unhandled: [makeVuln()],
+        exceptions: {
+          matched: [
+            { id: '123', matchedVulnerability: 'lodash' },
+            { id: '456', matchedVulnerability: 'minimist' },
+            { id: '123', matchedVulnerability: 'express' },
+          ],
+          unused: [],
+          expired: [],
+        },
+      })
+      const output = stripAnsi(formatTable(result, undefined))
+
+      expect(output).toContain('Exceptions were added for IDs 123, 456.')
+    })
+
+    it('lists unique packages for matched exceptions', () => {
+      const result = makeScanResult({
+        unhandled: [makeVuln()],
+        exceptions: {
+          matched: [
+            { module: 'lodash', matchedVulnerability: 'lodash' },
+            { module: 'minimist', matchedVulnerability: 'minimist' },
+            { module: 'lodash', matchedVulnerability: 'express' },
+          ],
+          unused: [],
+          expired: [],
+        },
+      })
+      const output = stripAnsi(formatTable(result, undefined))
+
+      expect(output).toContain('Exceptions were added for packages lodash, minimist.')
+    })
+
+    it('labels ids and packages for matched exceptions', () => {
+      const result = makeScanResult({
+        unhandled: [makeVuln()],
+        exceptions: {
+          matched: [
+            { id: '123', module: 'lodash', matchedVulnerability: 'lodash' },
+            { id: '456', module: 'minimist', matchedVulnerability: 'minimist' },
+          ],
+          unused: [],
+          expired: [],
+        },
+      })
+      const output = stripAnsi(formatTable(result, undefined))
+
+      expect(output).toContain(
+        'Exceptions were added for IDs 123, 456 and packages lodash, minimist.',
+      )
+    })
+
+    it('separates the matched exception sentence from the severity breakdown with a blank line', () => {
+      const result = makeScanResult({
+        unhandled: [makeVuln()],
+        metadata: makeMetadata({
+          total: 1,
+          severityCounts: { info: 0, low: 0, moderate: 0, high: 1, critical: 0 },
+        }),
+        exceptions: {
+          matched: [{ id: '123', matchedVulnerability: 'other' }],
+          unused: [],
+          expired: [],
+        },
+      })
+      const output = stripAnsi(formatTable(result, undefined))
+
+      expect(output).toContain('1 high\n\nExceptions were added for IDs 123.')
+    })
+
+    it('lists matched exception ids when all vulnerabilities are excepted', () => {
+      const result = makeScanResult({
+        exceptions: {
+          matched: [{ id: '123', matchedVulnerability: 'testpkg' }],
+          unused: [],
+          expired: [],
+        },
+      })
+      const output = stripAnsi(formatTable(result, undefined))
+
+      expect(output).toContain('No vulnerabilities found.\n\nExceptions were added for IDs 123.')
     })
 
     it('omits excepted suffix when no exceptions matched', () => {
@@ -557,14 +709,14 @@ describe('formatTable', () => {
           severityCounts: { info: 0, low: 0, moderate: 0, high: 1, critical: 0 },
         }),
       })
-      const output = stripAnsi(formatTable(result, undefined))
+      const output = stripAnsi(formatTable(result, undefined)).replace(/[ \t]+$/gm, '')
 
       expect(output).toMatchInlineSnapshot(`
         "
-        Severity  Package  Title                                                           Paths            Fix  URL
-        ────────  ───────  ──────────────────────────────────────────────────────────────  ───────────────  ───  ───
-        high      testpkg  This is a very long vulnerability title that should definitely  testpkg          No   https://github.com/advisories/GHSA-aaaa-bbbb-cccc
-                           be wrapped across multiple lines                                                      
+        ID    Severity  Package  Title                                                      Paths            Fix  URL
+        ────  ────────  ───────  ─────────────────────────────────────────────────────────  ───────────────  ───  ───
+        1001  high      testpkg  This is a very long vulnerability title that should        testpkg          No   https://github.com/advisories/GHSA-aaaa-bbbb-cccc
+                                 definitely be wrapped across multiple lines
 
         Found 1 package with 1 vulnerability (1 unhandled)
           1 high
